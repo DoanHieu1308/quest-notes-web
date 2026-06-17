@@ -60,6 +60,12 @@ button.ghost {
   color: var(--ink);
 }
 
+button.ghost.active {
+  border-color: var(--accent);
+  background: #dcebe5;
+  color: var(--accent-dark);
+}
+
 button.danger {
   background: var(--danger);
 }
@@ -574,6 +580,13 @@ h3 {
 }
 
 .study-actions {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+}
+
+.study-nav,
+.card-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -582,9 +595,19 @@ h3 {
 }
 
 #cardCounter {
-  min-width: 70px;
+  min-width: 76px;
   text-align: center;
   font-weight: 850;
+}
+
+.import-toolbar {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 16px;
+}
+
+.import-toolbar button {
+  background: var(--accent);
 }
 
 .import-menu {
@@ -765,6 +788,14 @@ h3 {
   }
 
   .row-actions button {
+    flex: 1;
+  }
+
+  .card-actions {
+    width: 100%;
+  }
+
+  .card-actions button {
     flex: 1;
   }
 }

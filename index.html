@@ -14,46 +14,46 @@
           <span class="logo-mark">QN</span>
           <div>
             <p class="eyebrow">Quest Notes</p>
-            <h1>Nhiem vu, xu va flashcard</h1>
+            <h1>Nhiệm vụ, xu và flashcard</h1>
           </div>
         </div>
 
         <div class="coin-panel">
-          <span>So xu</span>
+          <span>Số xu</span>
           <strong id="coinCount">0</strong>
         </div>
 
         <nav class="tabs" aria-label="Quest Notes sections">
-          <button class="tab active" data-view="tasks" type="button">Tasks</button>
-          <button class="tab" data-view="shop" type="button">Shop</button>
+          <button class="tab active" data-view="tasks" type="button">Nhiệm vụ</button>
+          <button class="tab" data-view="shop" type="button">Cửa hàng</button>
           <button class="tab" data-view="flashcards" type="button">Flashcards</button>
         </nav>
 
         <div class="sync-line">
           <span id="syncDot" class="sync-dot"></span>
-          <span id="syncText">Dang ket noi...</span>
+          <span id="syncText">Đang kết nối...</span>
         </div>
       </aside>
 
       <main class="workspace">
         <section id="tasksView" class="view active">
           <header class="quest-header">
-            <button id="prevDate" class="icon-button" type="button" aria-label="Ngay truoc">‹</button>
+            <button id="prevDate" class="icon-button" type="button" aria-label="Ngày trước">&lt;</button>
             <div class="date-block">
-              <p id="weekdayLabel" class="eyebrow">Hom nay</p>
+              <p id="weekdayLabel" class="eyebrow">Hôm nay</p>
               <input id="taskDate" type="date" />
             </div>
-            <button id="nextDate" class="icon-button" type="button" aria-label="Ngay sau">›</button>
+            <button id="nextDate" class="icon-button" type="button" aria-label="Ngày sau">&gt;</button>
             <div class="quest-progress">
               <div class="progress-bar"><span id="taskProgressBar"></span></div>
-              <p id="taskProgressText">Hoan thanh 0/0 nhiem vu</p>
+              <p id="taskProgressText">Hoàn thành 0/0 nhiệm vụ</p>
             </div>
           </header>
 
           <form id="taskForm" class="control-panel task-form">
-            <input id="taskTitle" placeholder="Them nhiem vu" autocomplete="off" />
+            <input id="taskTitle" placeholder="Thêm nhiệm vụ" autocomplete="off" />
             <input id="taskReward" type="number" min="1" value="20" aria-label="Reward" />
-            <button type="submit">Them</button>
+            <button type="submit">Thêm</button>
           </form>
 
           <div id="taskList" class="list"></div>
@@ -62,17 +62,17 @@
         <section id="shopView" class="view">
           <header class="section-head">
             <div>
-              <p class="eyebrow">Rewards</p>
-              <h2>Cua hang phan thuong</h2>
+              <p class="eyebrow">Phần thưởng</p>
+              <h2>Cửa hàng phần thưởng</h2>
             </div>
           </header>
 
           <form id="shopForm" class="control-panel shop-form">
-            <input id="shopName" placeholder="Ten vat pham" autocomplete="off" />
+            <input id="shopName" placeholder="Tên vật phẩm" autocomplete="off" />
             <input id="shopPrice" type="number" min="1" value="50" aria-label="Price" />
-            <input id="shopNote" placeholder="Ghi chu" autocomplete="off" />
-            <button id="shopSubmit" type="submit">Luu</button>
-            <button id="shopCancel" class="ghost hidden" type="button">Huy</button>
+            <input id="shopNote" placeholder="Ghi chú" autocomplete="off" />
+            <button id="shopSubmit" type="submit">Lưu</button>
+            <button id="shopCancel" class="ghost hidden" type="button">Hủy</button>
           </form>
 
           <div id="shopList" class="list"></div>
@@ -81,7 +81,7 @@
         <section id="flashcardsView" class="view">
           <header class="section-head">
             <div>
-              <p class="eyebrow">Study decks</p>
+              <p class="eyebrow">Bộ học</p>
               <h2>Flashcards</h2>
             </div>
           </header>
@@ -89,8 +89,8 @@
           <div class="flash-layout">
             <section class="deck-panel">
               <form id="deckForm" class="control-panel deck-form">
-                <input id="deckName" placeholder="Ten bo flashcard" autocomplete="off" />
-                <button type="submit">Them bo</button>
+                <input id="deckName" placeholder="Tên bộ flashcard" autocomplete="off" />
+                <button type="submit">Thêm bộ</button>
               </form>
               <div id="deckList" class="deck-strip"></div>
             </section>
@@ -98,56 +98,63 @@
             <section class="study-panel">
               <div class="study-top">
                 <div>
-                  <p class="eyebrow">Dang hoc</p>
-                  <h3 id="activeDeckName">Tu vung chung</h3>
+                  <p class="eyebrow">Đang học</p>
+                  <h3 id="activeDeckName">Từ vựng chung</h3>
                 </div>
-                <button id="claimDeckReward" class="gold-button" type="button">Nhan xu</button>
+                <button id="claimDeckReward" class="gold-button" type="button">Nhận xu</button>
               </div>
 
               <div class="reward-panel">
                 <div>
-                  <strong id="deckProgressText">Tien do 0/0 the</strong>
-                  <span id="deckRewardText">Hoan thanh bo de nhan xu</span>
+                  <strong id="deckProgressText">Tiến độ 0/0 thẻ</strong>
+                  <span id="deckRewardText">Hoàn thành bộ để nhận xu</span>
                 </div>
                 <div class="progress-bar"><span id="deckProgressBar"></span></div>
               </div>
 
-              <div id="flashCard" class="flash-card" role="button" tabindex="0" aria-label="Lat flashcard">
+              <div id="flashCard" class="flash-card" role="button" tabindex="0" aria-label="Lật flashcard">
                 <div class="flash-card-inner">
                   <div class="flash-face flash-front">
-                    <span class="face-label">Front</span>
-                    <strong id="flashFront">Chua co the</strong>
+                    <span class="face-label">Mặt trước</span>
+                    <strong id="flashFront">Chưa có thẻ</strong>
                   </div>
                   <div class="flash-face flash-back">
-                    <span class="face-label">Back</span>
-                    <strong id="flashBack">Hay them tu vung</strong>
+                    <span class="face-label">Mặt sau</span>
+                    <strong id="flashBack">Hãy thêm từ vựng</strong>
                   </div>
                 </div>
               </div>
 
               <div class="study-actions">
-                <button id="prevCard" class="icon-button" type="button" aria-label="The truoc">‹</button>
-                <span id="cardCounter">0/0</span>
-                <button id="nextCard" class="icon-button" type="button" aria-label="The sau">›</button>
-                <button id="toggleMastered" class="ghost" type="button">Da thuoc</button>
-                <button id="toggleImportMenu" class="ghost" type="button" aria-expanded="false">Nhap tu vung</button>
-                <button id="deleteCard" class="danger" type="button">Xoa the</button>
+                <div class="study-nav">
+                  <button id="prevCard" class="icon-button" type="button" aria-label="Thẻ trước">&lt;</button>
+                  <span id="cardCounter">0/0</span>
+                  <button id="nextCard" class="icon-button" type="button" aria-label="Thẻ sau">&gt;</button>
+                </div>
+                <div class="card-actions">
+                  <button id="toggleMastered" class="ghost" type="button">Đã thuộc</button>
+                  <button id="deleteCard" class="danger" type="button">Xóa thẻ</button>
+                </div>
+              </div>
+
+              <div class="import-toolbar">
+                <button id="toggleImportMenu" type="button" aria-expanded="false">Nhập từ vựng</button>
               </div>
 
               <div id="importMenu" class="import-menu hidden">
                 <form id="bulkCardForm" class="control-panel bulk-form">
-                  <textarea id="bulkCards" placeholder="hello : xin chao&#10;apple : qua tao"></textarea>
-                  <button type="submit">Them nhieu tu</button>
+                  <textarea id="bulkCards" placeholder="hello : xin chào&#10;apple : quả táo"></textarea>
+                  <button type="submit">Thêm nhiều từ</button>
                 </form>
                 <div class="import-side">
                   <form id="cardForm" class="control-panel card-form">
-                    <input id="cardFront" placeholder="Tu vung" autocomplete="off" />
-                    <input id="cardBack" placeholder="Nghia" autocomplete="off" />
-                    <button type="submit">Them the</button>
+                    <input id="cardFront" placeholder="Từ vựng" autocomplete="off" />
+                    <input id="cardBack" placeholder="Nghĩa" autocomplete="off" />
+                    <button type="submit">Thêm thẻ</button>
                   </form>
                   <label class="excel-upload">
                     <input id="excelInput" type="file" accept=".xlsx,.xls" />
-                    <span>Nhap Excel</span>
+                    <span>Nhập Excel</span>
                   </label>
                 </div>
               </div>

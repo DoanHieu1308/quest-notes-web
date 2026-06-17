@@ -13,7 +13,7 @@ let showingBack = false;
 let editingShopId = null;
 
 const $ = (id) => document.getElementById(id);
-const weekdays = ['Chu nhat', 'Thu hai', 'Thu ba', 'Thu tu', 'Thu nam', 'Thu sau', 'Thu bay'];
+const weekdays = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
 
 document.addEventListener('DOMContentLoaded', async () => {
   $('taskDate').value = selectedDate;
@@ -82,7 +82,7 @@ function bindEvents() {
     event.preventDefault();
     const cards = parseRawCards($('bulkCards').value);
     if (!cards.length) {
-      showToast('Dung mau: tu vung : nghia, moi dong mot the.');
+      showToast('Đúng mẫu: từ vựng : nghĩa, mỗi dòng một thẻ.');
       return;
     }
     addCards(cards);
@@ -125,35 +125,35 @@ function render() {
 
 function renderTasks() {
   const selected = new Date(`${selectedDate}T00:00:00`);
-  $('weekdayLabel').textContent = weekdays[selected.getDay()] || 'Hom nay';
+  $('weekdayLabel').textContent = weekdays[selected.getDay()] || 'Hôm nay';
   $('taskDate').value = selectedDate;
 
   const tasks = tasksForSelectedDate();
   const completed = tasks.filter((task) => task.done).length;
   const progress = tasks.length ? completed / tasks.length : 0;
   $('taskProgressBar').style.width = `${progress * 100}%`;
-  $('taskProgressText').textContent = `Hoan thanh ${completed}/${tasks.length} nhiem vu`;
+  $('taskProgressText').textContent = `Hoàn thành ${completed}/${tasks.length} nhiệm vụ`;
 
   const list = $('taskList');
-  list.innerHTML = tasks.length ? '' : '<div class="empty">Chua co nhiem vu cho ngay nay.</div>';
+  list.innerHTML = tasks.length ? '' : '<div class="empty">Chưa có nhiệm vụ cho ngày này.</div>';
 
   tasks.forEach((task) => {
     const row = document.createElement('article');
     row.className = `quest-item ${task.done ? 'done' : ''}`;
     row.innerHTML = `
-      <button class="quest-toggle" type="button" aria-label="Toggle task">${task.done ? 'OK' : 'GO'}</button>
+      <button class="quest-toggle" type="button" aria-label="Đổi trạng thái nhiệm vụ">${task.done ? '✓' : '!'}</button>
       <div>
         <div class="pill-row">
-          <span class="pill">${task.done ? 'CLEARED' : 'QUEST'}</span>
+          <span class="pill">${task.done ? 'XONG' : 'NHIỆM VỤ'}</span>
           <span class="pill gold">${task.reward} xu</span>
         </div>
         <div class="title"></div>
-        <div class="meta">${task.done ? 'Phan thuong da nhan' : 'Hoan thanh de thu thap xu'}</div>
+        <div class="meta">${task.done ? 'Phần thưởng đã nhận' : 'Hoàn thành để thu thập xu'}</div>
       </div>
       <div class="row-actions">
-        <button class="ghost edit" type="button">Sua</button>
-        <button class="ghost copy" type="button">Copy</button>
-        <button class="danger delete" type="button">Xoa</button>
+        <button class="ghost edit" type="button">Sửa</button>
+        <button class="ghost copy" type="button">Sao chép</button>
+        <button class="danger delete" type="button">Xóa</button>
       </div>
     `;
     row.querySelector('.title').textContent = task.title;
@@ -167,7 +167,7 @@ function renderTasks() {
 
 function renderShop() {
   const list = $('shopList');
-  list.innerHTML = state.shopItems.length ? '' : '<div class="empty">Shop dang trong.</div>';
+  list.innerHTML = state.shopItems.length ? '' : '<div class="empty">Cửa hàng đang trống.</div>';
 
   state.shopItems.forEach((item) => {
     const row = document.createElement('article');
@@ -179,9 +179,9 @@ function renderShop() {
         <div class="meta"></div>
       </div>
       <div class="row-actions">
-        <button class="gold-button buy" type="button">${item.bought ? 'Da doi' : 'Doi'}</button>
-        <button class="ghost edit" type="button">Sua</button>
-        <button class="danger delete" type="button">Xoa</button>
+        <button class="gold-button buy" type="button">${item.bought ? 'Đã đổi' : 'Đổi'}</button>
+        <button class="ghost edit" type="button">Sửa</button>
+        <button class="danger delete" type="button">Xóa</button>
       </div>
     `;
     row.querySelector('.title').textContent = item.name;
@@ -207,10 +207,10 @@ function renderFlashcards() {
     row.innerHTML = `
       <button class="ghost open" type="button">
         <strong></strong>
-        <span class="meta">${mastered}/${cards.length} the</span>
+        <span class="meta">${mastered}/${cards.length} thẻ</span>
       </button>
-      <button class="ghost edit" type="button">Sua</button>
-      <button class="danger delete" type="button">Xoa</button>
+      <button class="ghost edit" type="button">Sửa</button>
+      <button class="danger delete" type="button">Xóa</button>
     `;
     row.querySelector('strong').textContent = deck.name;
     row.querySelector('.open').addEventListener('click', () => {
@@ -234,27 +234,29 @@ function renderFlashcards() {
   const reward = rewardForCards(cards.length);
   const canClaim = Boolean(deck && complete && !deck.rewardClaimed);
 
-  $('activeDeckName').textContent = deck?.name || 'Tu vung chung';
-  $('deckProgressText').textContent = `Tien do ${mastered}/${cards.length} the`;
+  $('activeDeckName').textContent = deck?.name || 'Từ vựng chung';
+  $('deckProgressText').textContent = `Tiến độ ${mastered}/${cards.length} thẻ`;
   $('deckRewardText').textContent = deck?.rewardClaimed
-    ? 'Da nhan thuong bo nay'
-    : `Hoan thanh bo de nhan ${reward} xu`;
+    ? 'Đã nhận thưởng bộ này'
+    : `Hoàn thành bộ để nhận ${reward} xu`;
   $('deckProgressBar').style.width = `${cards.length ? (mastered / cards.length) * 100 : 0}%`;
   $('claimDeckReward').disabled = !canClaim;
-  $('claimDeckReward').textContent = deck?.rewardClaimed ? 'Da nhan' : 'Nhan xu';
+  $('claimDeckReward').textContent = deck?.rewardClaimed ? 'Đã nhận' : 'Nhận xu';
 
   $('flashCard').classList.toggle('flipped', showingBack);
-  $('flashFront').textContent = card?.front || 'Chua co the';
-  $('flashBack').textContent = card?.back || 'Hay them tu vung';
+  $('flashFront').textContent = card?.front || 'Chưa có thẻ';
+  $('flashBack').textContent = card?.back || 'Hãy thêm từ vựng';
   $('cardCounter').textContent = cards.length ? `${currentCardIndex + 1}/${cards.length}` : '0/0';
   $('prevCard').disabled = currentCardIndex <= 0;
   $('nextCard').disabled = currentCardIndex >= cards.length - 1;
   $('toggleMastered').disabled = !card;
   $('deleteCard').disabled = !card;
-  $('toggleMastered').textContent = card?.mastered ? 'Bo da thuoc' : 'Da thuoc';
+  $('toggleMastered').textContent = 'Đã thuộc';
+  $('toggleMastered').classList.toggle('active', Boolean(card?.mastered));
+  $('toggleMastered').setAttribute('aria-pressed', String(Boolean(card?.mastered)));
 
   const list = $('cardList');
-  list.innerHTML = cards.length ? '' : '<div class="empty">Bo nay dang trong. Nhap theo mau tu vung : nghia de bat dau.</div>';
+  list.innerHTML = cards.length ? '' : '<div class="empty">Bộ này đang trống. Nhập theo mẫu từ vựng : nghĩa để bắt đầu.</div>';
   cards.forEach((item, index) => {
     const row = document.createElement('button');
     row.className = `mini-card ${index === currentCardIndex ? 'active' : ''}`;
@@ -262,7 +264,7 @@ function renderFlashcards() {
     row.innerHTML = `
       <span class="pill gold">${item.mastered ? 'OK' : index + 1}</span>
       <span><strong></strong><br><span class="meta"></span></span>
-      <span class="meta">${item.mastered ? 'Da thuoc' : 'Dang hoc'}</span>
+      <span class="meta">${item.mastered ? 'Đã thuộc' : 'Đang học'}</span>
     `;
     row.querySelector('strong').textContent = item.front;
     row.querySelector('.meta').textContent = item.back;
@@ -300,9 +302,9 @@ function toggleTask(id, done) {
 function editTask(id) {
   const task = state.tasks.find((item) => item.id === id);
   if (!task) return;
-  const title = window.prompt('Sua nhiem vu', task.title);
+  const title = window.prompt('Sửa nhiệm vụ', task.title);
   if (!title?.trim()) return;
-  const reward = window.prompt('So xu', String(task.reward));
+  const reward = window.prompt('Số xu', String(task.reward));
   const oldReward = task.reward;
   task.title = title.trim();
   task.reward = positiveInt(reward, task.reward);
@@ -313,7 +315,7 @@ function editTask(id) {
 function copyTask(id) {
   const task = state.tasks.find((item) => item.id === id);
   if (!task) return;
-  const targetDate = window.prompt('Sao chep sang ngay (YYYY-MM-DD)', nextDayKey(selectedDate));
+  const targetDate = window.prompt('Sao chép sang ngày (YYYY-MM-DD)', nextDayKey(selectedDate));
   if (!isDateKey(targetDate)) return;
   state.tasks.push({
     id: newId(),
@@ -322,7 +324,7 @@ function copyTask(id) {
     reward: task.reward,
     done: false,
   });
-  showToast(`Da sao chep sang ${targetDate}.`);
+  showToast(`Đã sao chép sang ${targetDate}.`);
   persistAndSync();
 }
 
@@ -360,7 +362,7 @@ function editShopItem(id) {
   $('shopName').value = item.name;
   $('shopPrice').value = item.price;
   $('shopNote').value = item.note;
-  $('shopSubmit').textContent = 'Luu';
+  $('shopSubmit').textContent = 'Lưu';
   $('shopCancel').classList.remove('hidden');
   $('shopName').focus();
 }
@@ -376,7 +378,7 @@ function buyItem(id) {
   const item = state.shopItems.find((entry) => entry.id === id);
   if (!item || item.bought) return;
   if (state.coins < item.price) {
-    showToast('Chua du xu de doi vat pham nay.');
+    showToast('Chưa đủ xu để đổi vật phẩm này.');
     return;
   }
   item.bought = true;
@@ -392,7 +394,7 @@ function deleteShopItem(id) {
 function editDeck(id) {
   const deck = state.flashDecks.find((item) => item.id === id);
   if (!deck) return;
-  const name = window.prompt('Sua ten bo flashcard', deck.name);
+  const name = window.prompt('Sửa tên bộ flashcard', deck.name);
   if (!name?.trim()) return;
   deck.name = name.trim();
   persistAndSync();
@@ -424,7 +426,7 @@ function addCards(cards) {
   );
   const deck = state.flashDecks.find((item) => item.id === selectedDeckId);
   if (deck) deck.rewardClaimed = false;
-  showToast(`Da nhap ${normalized.length} flashcard.`);
+  showToast(`Đã nhập ${normalized.length} flashcard.`);
   setImportMenuOpen(false);
   persistAndSync();
 }
@@ -456,7 +458,7 @@ async function importExcelCards(event) {
   event.target.value = '';
   if (!file) return;
   if (!window.XLSX) {
-    showToast('Thu vien doc Excel chua tai xong. Thu lai sau vai giay.');
+    showToast('Thư viện đọc Excel chưa tải xong. Thử lại sau vài giây.');
     return;
   }
 
@@ -481,12 +483,12 @@ async function importExcelCards(event) {
       });
     });
     if (!cards.length) {
-      showToast('Khong tim thay cap tu vung/nghia trong Excel.');
+      showToast('Không tìm thấy cặp từ vựng/nghĩa trong Excel.');
       return;
     }
     addCards(cards);
   } catch {
-    showToast('Khong the doc file Excel.');
+    showToast('Không thể đọc file Excel.');
   }
 }
 
@@ -527,7 +529,7 @@ function claimDeckReward() {
   state.coins += reward;
   deck.rewardClaimed = true;
   showCoinBurst(reward);
-  showToast(`Da nhan ${reward} xu cho bo hoc nay.`);
+  showToast(`Đã nhận ${reward} xu cho bộ học này.`);
   persistAndSync();
 }
 
@@ -553,23 +555,23 @@ async function syncFromServer() {
   }
 
   try {
-    setSyncStatus('Dang dong bo...', 'pending');
+    setSyncStatus('Đang đồng bộ...', 'pending');
     const response = await fetch(`${API_BASE_URL}/quest/state`);
     if (!response.ok) throw new Error('Request failed');
     const payload = await response.json();
     state = normalizeState(payload.data);
     ensureSelectedDeck();
     saveLocalState();
-    setSyncStatus('Da dong bo', 'online');
+    setSyncStatus('Đã đồng bộ', 'online');
     render();
   } catch {
-    setSyncStatus('Offline - dung du lieu may nay', 'offline');
+    setSyncStatus('Offline - dùng dữ liệu máy này', 'offline');
   }
 }
 
 async function pushState() {
   try {
-    setSyncStatus('Dang day thay doi...', 'pending');
+    setSyncStatus('Đang đẩy thay đổi...', 'pending');
     const response = await fetch(`${API_BASE_URL}/quest/sync`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -581,10 +583,10 @@ async function pushState() {
     ensureSelectedDeck();
     saveLocalState();
     localStorage.removeItem(PENDING_KEY);
-    setSyncStatus('Da dong bo', 'online');
+    setSyncStatus('Đã đồng bộ', 'online');
     render();
   } catch {
-    setSyncStatus('Offline - se dong bo sau', 'offline');
+    setSyncStatus('Offline - sẽ đồng bộ sau', 'offline');
   }
 }
 
@@ -608,7 +610,7 @@ function normalizeState(raw = {}) {
     shopItems: Array.isArray(raw.shopItems) ? raw.shopItems.map(normalizeShopItem) : [],
     flashDecks: Array.isArray(raw.flashDecks) && raw.flashDecks.length
       ? raw.flashDecks.map(normalizeDeck)
-      : [{ id: 'default-flashcard-deck', name: 'Tu vung chung', createdAt: 0, rewardClaimed: false }],
+      : [{ id: 'default-flashcard-deck', name: 'Từ vựng chung', createdAt: 0, rewardClaimed: false }],
     flashCards: Array.isArray(raw.flashCards) ? raw.flashCards.map(normalizeCard) : [],
   };
 }
@@ -636,7 +638,7 @@ function normalizeShopItem(item = {}) {
 function normalizeDeck(deck = {}) {
   return {
     id: String(deck.id || newId()),
-    name: String(deck.name || 'Tu vung chung'),
+    name: String(deck.name || 'Từ vựng chung'),
     createdAt: Number.parseInt(deck.createdAt, 10) || 0,
     rewardClaimed: Boolean(deck.rewardClaimed),
   };
