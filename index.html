@@ -5,23 +5,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Quest Notes</title>
     <link rel="stylesheet" href="./styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
   </head>
   <body>
     <div class="app">
       <aside class="sidebar">
-        <div>
-          <p class="eyebrow">Quest Notes</p>
-          <h1>Nhiem vu, xu va flashcard</h1>
+        <div class="brand">
+          <span class="logo-mark">QN</span>
+          <div>
+            <p class="eyebrow">Quest Notes</p>
+            <h1>Nhiem vu, xu va flashcard</h1>
+          </div>
         </div>
+
         <div class="coin-panel">
           <span>So xu</span>
           <strong id="coinCount">0</strong>
         </div>
+
         <nav class="tabs" aria-label="Quest Notes sections">
-          <button class="tab active" data-view="tasks">Tasks</button>
-          <button class="tab" data-view="shop">Shop</button>
-          <button class="tab" data-view="flashcards">Flashcards</button>
+          <button class="tab active" data-view="tasks" type="button">Tasks</button>
+          <button class="tab" data-view="shop" type="button">Shop</button>
+          <button class="tab" data-view="flashcards" type="button">Flashcards</button>
         </nav>
+
         <div class="sync-line">
           <span id="syncDot" class="sync-dot"></span>
           <span id="syncText">Dang ket noi...</span>
@@ -30,18 +37,25 @@
 
       <main class="workspace">
         <section id="tasksView" class="view active">
-          <header class="section-head">
-            <div>
-              <p class="eyebrow">Daily board</p>
-              <h2>Tasks</h2>
+          <header class="quest-header">
+            <button id="prevDate" class="icon-button" type="button" aria-label="Ngay truoc">‹</button>
+            <div class="date-block">
+              <p id="weekdayLabel" class="eyebrow">Hom nay</p>
+              <input id="taskDate" type="date" />
             </div>
-            <input id="taskDate" type="date" />
+            <button id="nextDate" class="icon-button" type="button" aria-label="Ngay sau">›</button>
+            <div class="quest-progress">
+              <div class="progress-bar"><span id="taskProgressBar"></span></div>
+              <p id="taskProgressText">Hoan thanh 0/0 nhiem vu</p>
+            </div>
           </header>
-          <form id="taskForm" class="form-row">
+
+          <form id="taskForm" class="control-panel task-form">
             <input id="taskTitle" placeholder="Them nhiem vu" autocomplete="off" />
-            <input id="taskReward" type="number" min="1" value="10" aria-label="Reward" />
+            <input id="taskReward" type="number" min="1" value="20" aria-label="Reward" />
             <button type="submit">Them</button>
           </form>
+
           <div id="taskList" class="list"></div>
         </section>
 
@@ -49,15 +63,18 @@
           <header class="section-head">
             <div>
               <p class="eyebrow">Rewards</p>
-              <h2>Shop</h2>
+              <h2>Cua hang phan thuong</h2>
             </div>
           </header>
-          <form id="shopForm" class="form-grid">
-            <input id="shopName" placeholder="Ten phan thuong" autocomplete="off" />
+
+          <form id="shopForm" class="control-panel shop-form">
+            <input id="shopName" placeholder="Ten vat pham" autocomplete="off" />
             <input id="shopPrice" type="number" min="1" value="50" aria-label="Price" />
             <input id="shopNote" placeholder="Ghi chu" autocomplete="off" />
-            <button type="submit">Luu</button>
+            <button id="shopSubmit" type="submit">Luu</button>
+            <button id="shopCancel" class="ghost hidden" type="button">Huy</button>
           </form>
+
           <div id="shopList" class="list"></div>
         </section>
 
@@ -68,20 +85,79 @@
               <h2>Flashcards</h2>
             </div>
           </header>
-          <form id="deckForm" class="form-row">
-            <input id="deckName" placeholder="Ten bo the" autocomplete="off" />
-            <button type="submit">Them bo</button>
-          </form>
-          <div id="deckList" class="deck-strip"></div>
-          <form id="cardForm" class="form-grid">
-            <input id="cardFront" placeholder="Mat truoc" autocomplete="off" />
-            <input id="cardBack" placeholder="Mat sau" autocomplete="off" />
-            <button type="submit">Them the</button>
-          </form>
-          <div id="cardList" class="list"></div>
+
+          <div class="flash-layout">
+            <section class="deck-panel">
+              <form id="deckForm" class="control-panel deck-form">
+                <input id="deckName" placeholder="Ten bo flashcard" autocomplete="off" />
+                <button type="submit">Them bo</button>
+              </form>
+              <div id="deckList" class="deck-strip"></div>
+            </section>
+
+            <section class="study-panel">
+              <div class="study-top">
+                <div>
+                  <p class="eyebrow">Dang hoc</p>
+                  <h3 id="activeDeckName">Tu vung chung</h3>
+                </div>
+                <button id="claimDeckReward" class="gold-button" type="button">Nhan xu</button>
+              </div>
+
+              <div class="reward-panel">
+                <div>
+                  <strong id="deckProgressText">Tien do 0/0 the</strong>
+                  <span id="deckRewardText">Hoan thanh bo de nhan xu</span>
+                </div>
+                <div class="progress-bar"><span id="deckProgressBar"></span></div>
+              </div>
+
+              <div id="flashCard" class="flash-card" role="button" tabindex="0" aria-label="Lat flashcard">
+                <div class="flash-card-inner">
+                  <div class="flash-face flash-front">
+                    <span class="face-label">Front</span>
+                    <strong id="flashFront">Chua co the</strong>
+                  </div>
+                  <div class="flash-face flash-back">
+                    <span class="face-label">Back</span>
+                    <strong id="flashBack">Hay them tu vung</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div class="study-actions">
+                <button id="prevCard" class="icon-button" type="button" aria-label="The truoc">‹</button>
+                <span id="cardCounter">0/0</span>
+                <button id="nextCard" class="icon-button" type="button" aria-label="The sau">›</button>
+                <button id="toggleMastered" class="ghost" type="button">Da thuoc</button>
+                <button id="deleteCard" class="danger" type="button">Xoa the</button>
+              </div>
+
+              <div class="import-grid">
+                <form id="bulkCardForm" class="control-panel bulk-form">
+                  <textarea id="bulkCards" placeholder="hello : xin chao&#10;apple : qua tao"></textarea>
+                  <button type="submit">Them nhieu tu</button>
+                </form>
+                <form id="cardForm" class="control-panel card-form">
+                  <input id="cardFront" placeholder="Tu vung" autocomplete="off" />
+                  <input id="cardBack" placeholder="Nghia" autocomplete="off" />
+                  <button type="submit">Them the</button>
+                </form>
+                <label class="excel-upload">
+                  <input id="excelInput" type="file" accept=".xlsx,.xls" />
+                  <span>Nhap Excel</span>
+                </label>
+              </div>
+
+              <div id="cardList" class="mini-list"></div>
+            </section>
+          </div>
         </section>
       </main>
     </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <div id="coinBurst" class="coin-burst" aria-hidden="true"></div>
 
     <script src="./config.js"></script>
     <script src="./app.js"></script>

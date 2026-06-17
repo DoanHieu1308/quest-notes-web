@@ -8,8 +8,12 @@ const PENDING_KEY = 'quest_notes_pending_sync_v1';
 let state = loadLocalState();
 let selectedDate = todayKey();
 let selectedDeckId = state.flashDecks[0]?.id || 'default-flashcard-deck';
+let currentCardIndex = 0;
+let showingBack = false;
+let editingShopId = null;
 
 const $ = (id) => document.getElementById(id);
+const weekdays = ['Chu nhat', 'Thu hai', 'Thu ba', 'Thu tu', 'Thu nam', 'Thu sau', 'Thu bay'];
 
 document.addEventListener('DOMContentLoaded', async () => {
   $('taskDate').value = selectedDate;
@@ -23,6 +27,8 @@ function bindEvents() {
     tab.addEventListener('click', () => selectView(tab.dataset.view));
   });
 
+  $('prevDate').addEventListener('click', () => shiftDate(-1));
+  $('nextDate').addEventListener('click', () => shiftDate(1));
   $('taskDate').addEventListener('change', (event) => {
     selectedDate = event.target.value || todayKey();
     renderTasks();
@@ -36,7 +42,7 @@ function bindEvents() {
       id: newId(),
       title,
       dateKey: selectedDate,
-      reward: positiveInt($('taskReward').value, 10),
+      reward: positiveInt($('taskReward').value, 20),
       done: false,
     });
     $('taskTitle').value = '';
@@ -45,32 +51,19 @@ function bindEvents() {
 
   $('shopForm').addEventListener('submit', (event) => {
     event.preventDefault();
-    const name = $('shopName').value.trim();
-    if (!name) return;
-    state.shopItems.push({
-      id: newId(),
-      name,
-      price: positiveInt($('shopPrice').value, 50),
-      note: $('shopNote').value.trim(),
-      bought: false,
-    });
-    event.target.reset();
-    $('shopPrice').value = 50;
-    persistAndSync();
+    saveShopItem();
   });
+  $('shopCancel').addEventListener('click', clearShopForm);
 
   $('deckForm').addEventListener('submit', (event) => {
     event.preventDefault();
     const name = $('deckName').value.trim();
     if (!name) return;
-    const deck = {
-      id: newId(),
-      name,
-      createdAt: Date.now(),
-      rewardClaimed: false,
-    };
+    const deck = { id: newId(), name, createdAt: Date.now(), rewardClaimed: false };
     state.flashDecks.push(deck);
     selectedDeckId = deck.id;
+    currentCardIndex = 0;
+    showingBack = false;
     $('deckName').value = '';
     persistAndSync();
   });
@@ -80,17 +73,35 @@ function bindEvents() {
     const front = $('cardFront').value.trim();
     const back = $('cardBack').value.trim();
     if (!front || !back) return;
-    state.flashCards.push({
-      id: newId(),
-      deckId: selectedDeckId,
-      front,
-      back,
-      mastered: false,
-    });
+    addCards([{ front, back }]);
     $('cardFront').value = '';
     $('cardBack').value = '';
-    persistAndSync();
   });
+
+  $('bulkCardForm').addEventListener('submit', (event) => {
+    event.preventDefault();
+    const cards = parseRawCards($('bulkCards').value);
+    if (!cards.length) {
+      showToast('Dung mau: tu vung : nghia, moi dong mot the.');
+      return;
+    }
+    addCards(cards);
+    $('bulkCards').value = '';
+  });
+
+  $('excelInput').addEventListener('change', importExcelCards);
+  $('flashCard').addEventListener('click', flipCard);
+  $('flashCard').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      flipCard();
+    }
+  });
+  $('prevCard').addEventListener('click', () => moveCard(-1));
+  $('nextCard').addEventListener('click', () => moveCard(1));
+  $('toggleMastered').addEventListener('click', toggleCurrentCardMastered);
+  $('deleteCard').addEventListener('click', deleteCurrentCard);
+  $('claimDeckReward').addEventListener('click', claimDeckReward);
 
   window.addEventListener('online', syncFromServer);
 }
@@ -112,100 +123,168 @@ function render() {
 }
 
 function renderTasks() {
-  const list = $('taskList');
-  const tasks = state.tasks
-    .filter((task) => task.dateKey === selectedDate)
-    .sort((a, b) => Number(a.done) - Number(b.done) || a.title.localeCompare(b.title));
+  const selected = new Date(`${selectedDate}T00:00:00`);
+  $('weekdayLabel').textContent = weekdays[selected.getDay()] || 'Hom nay';
+  $('taskDate').value = selectedDate;
 
-  list.innerHTML = tasks.length
-    ? ''
-    : '<div class="item"><span class="meta">Chua co nhiem vu cho ngay nay.</span></div>';
+  const tasks = tasksForSelectedDate();
+  const completed = tasks.filter((task) => task.done).length;
+  const progress = tasks.length ? completed / tasks.length : 0;
+  $('taskProgressBar').style.width = `${progress * 100}%`;
+  $('taskProgressText').textContent = `Hoan thanh ${completed}/${tasks.length} nhiem vu`;
+
+  const list = $('taskList');
+  list.innerHTML = tasks.length ? '' : '<div class="empty">Chua co nhiem vu cho ngay nay.</div>';
 
   tasks.forEach((task) => {
-    const row = document.createElement('div');
-    row.className = `item ${task.done ? 'done' : ''}`;
+    const row = document.createElement('article');
+    row.className = `quest-item ${task.done ? 'done' : ''}`;
     row.innerHTML = `
-      <input type="checkbox" ${task.done ? 'checked' : ''} aria-label="Done" />
+      <button class="quest-toggle" type="button" aria-label="Toggle task">${task.done ? 'OK' : 'GO'}</button>
       <div>
+        <div class="pill-row">
+          <span class="pill">${task.done ? 'CLEARED' : 'QUEST'}</span>
+          <span class="pill gold">${task.reward} xu</span>
+        </div>
         <div class="title"></div>
-        <div class="meta">${task.reward} xu</div>
+        <div class="meta">${task.done ? 'Phan thuong da nhan' : 'Hoan thanh de thu thap xu'}</div>
       </div>
-      <button class="ghost">Sua</button>
-      <button class="danger">Xoa</button>
+      <div class="row-actions">
+        <button class="ghost edit" type="button">Sua</button>
+        <button class="ghost copy" type="button">Copy</button>
+        <button class="danger delete" type="button">Xoa</button>
+      </div>
     `;
     row.querySelector('.title').textContent = task.title;
-    row.querySelector('input').addEventListener('change', (event) => toggleTask(task.id, event.target.checked));
-    row.querySelector('.ghost').addEventListener('click', () => editTask(task.id));
-    row.querySelector('.danger').addEventListener('click', () => deleteTask(task.id));
+    row.querySelector('.quest-toggle').addEventListener('click', () => toggleTask(task.id, !task.done));
+    row.querySelector('.edit').addEventListener('click', () => editTask(task.id));
+    row.querySelector('.copy').addEventListener('click', () => copyTask(task.id));
+    row.querySelector('.delete').addEventListener('click', () => deleteTask(task.id));
     list.appendChild(row);
   });
 }
 
 function renderShop() {
   const list = $('shopList');
-  list.innerHTML = state.shopItems.length
-    ? ''
-    : '<div class="item"><span class="meta">Chua co phan thuong.</span></div>';
+  list.innerHTML = state.shopItems.length ? '' : '<div class="empty">Shop dang trong.</div>';
 
   state.shopItems.forEach((item) => {
-    const row = document.createElement('div');
-    row.className = `item ${item.bought ? 'done' : ''}`;
+    const row = document.createElement('article');
+    row.className = `plain-item ${item.bought ? 'done' : ''}`;
     row.innerHTML = `
-      <span class="meta">${item.bought ? 'Da doi' : 'Moi'}</span>
+      <span class="plain-icon">${item.bought ? 'OK' : 'G'}</span>
       <div>
         <div class="title"></div>
         <div class="meta"></div>
       </div>
-      <button class="ghost">Doi</button>
-      <button class="danger">Xoa</button>
+      <div class="row-actions">
+        <button class="gold-button buy" type="button">${item.bought ? 'Da doi' : 'Doi'}</button>
+        <button class="ghost edit" type="button">Sua</button>
+        <button class="danger delete" type="button">Xoa</button>
+      </div>
     `;
     row.querySelector('.title').textContent = item.name;
-    row.querySelectorAll('.meta')[1].textContent = `${item.price} xu${item.note ? ` - ${item.note}` : ''}`;
-    row.querySelector('.ghost').addEventListener('click', () => buyItem(item.id));
-    row.querySelector('.danger').addEventListener('click', () => deleteShopItem(item.id));
+    row.querySelector('.meta').textContent = `${item.price} xu${item.note ? ` - ${item.note}` : ''}`;
+    row.querySelector('.buy').disabled = item.bought;
+    row.querySelector('.buy').addEventListener('click', () => buyItem(item.id));
+    row.querySelector('.edit').addEventListener('click', () => editShopItem(item.id));
+    row.querySelector('.delete').addEventListener('click', () => deleteShopItem(item.id));
     list.appendChild(row);
   });
 }
 
 function renderFlashcards() {
+  ensureSelectedDeck();
   const deckList = $('deckList');
   deckList.innerHTML = '';
+
   state.flashDecks.forEach((deck) => {
-    const button = document.createElement('button');
-    button.className = `deck ${deck.id === selectedDeckId ? 'active' : ''}`;
-    button.textContent = deck.name;
-    button.addEventListener('click', () => {
+    const cards = cardsForDeck(deck.id);
+    const mastered = cards.filter((card) => card.mastered).length;
+    const row = document.createElement('div');
+    row.className = `deck ${deck.id === selectedDeckId ? 'active' : ''}`;
+    row.innerHTML = `
+      <button class="ghost open" type="button">
+        <strong></strong>
+        <span class="meta">${mastered}/${cards.length} the</span>
+      </button>
+      <button class="ghost edit" type="button">Sua</button>
+      <button class="danger delete" type="button">Xoa</button>
+    `;
+    row.querySelector('strong').textContent = deck.name;
+    row.querySelector('.open').addEventListener('click', () => {
       selectedDeckId = deck.id;
+      currentCardIndex = 0;
+      showingBack = false;
       renderFlashcards();
     });
-    deckList.appendChild(button);
+    row.querySelector('.edit').addEventListener('click', () => editDeck(deck.id));
+    row.querySelector('.delete').disabled = state.flashDecks.length <= 1;
+    row.querySelector('.delete').addEventListener('click', () => deleteDeck(deck.id));
+    deckList.appendChild(row);
   });
 
-  const cards = state.flashCards.filter((card) => card.deckId === selectedDeckId);
-  const list = $('cardList');
-  list.innerHTML = cards.length
-    ? ''
-    : '<div class="item"><span class="meta">Chua co flashcard trong bo nay.</span></div>';
+  const deck = state.flashDecks.find((item) => item.id === selectedDeckId);
+  const cards = cardsForDeck(selectedDeckId);
+  if (currentCardIndex >= cards.length) currentCardIndex = Math.max(0, cards.length - 1);
+  const card = cards[currentCardIndex];
+  const mastered = cards.filter((item) => item.mastered).length;
+  const complete = cards.length > 0 && mastered === cards.length;
+  const reward = rewardForCards(cards.length);
+  const canClaim = Boolean(deck && complete && !deck.rewardClaimed);
 
-  cards.forEach((card) => {
-    const row = document.createElement('div');
-    row.className = `item ${card.mastered ? 'done' : ''}`;
+  $('activeDeckName').textContent = deck?.name || 'Tu vung chung';
+  $('deckProgressText').textContent = `Tien do ${mastered}/${cards.length} the`;
+  $('deckRewardText').textContent = deck?.rewardClaimed
+    ? 'Da nhan thuong bo nay'
+    : `Hoan thanh bo de nhan ${reward} xu`;
+  $('deckProgressBar').style.width = `${cards.length ? (mastered / cards.length) * 100 : 0}%`;
+  $('claimDeckReward').disabled = !canClaim;
+  $('claimDeckReward').textContent = deck?.rewardClaimed ? 'Da nhan' : 'Nhan xu';
+
+  $('flashCard').classList.toggle('flipped', showingBack);
+  $('flashFront').textContent = card?.front || 'Chua co the';
+  $('flashBack').textContent = card?.back || 'Hay them tu vung';
+  $('cardCounter').textContent = cards.length ? `${currentCardIndex + 1}/${cards.length}` : '0/0';
+  $('prevCard').disabled = currentCardIndex <= 0;
+  $('nextCard').disabled = currentCardIndex >= cards.length - 1;
+  $('toggleMastered').disabled = !card;
+  $('deleteCard').disabled = !card;
+  $('toggleMastered').textContent = card?.mastered ? 'Bo da thuoc' : 'Da thuoc';
+
+  const list = $('cardList');
+  list.innerHTML = cards.length ? '' : '<div class="empty">Bo nay dang trong. Nhap theo mau tu vung : nghia de bat dau.</div>';
+  cards.forEach((item, index) => {
+    const row = document.createElement('button');
+    row.className = `mini-card ${index === currentCardIndex ? 'active' : ''}`;
+    row.type = 'button';
     row.innerHTML = `
-      <input type="checkbox" ${card.mastered ? 'checked' : ''} aria-label="Mastered" />
-      <div>
-        <div class="title"></div>
-        <div class="meta"></div>
-      </div>
-      <button class="ghost">Thuong</button>
-      <button class="danger">Xoa</button>
+      <span class="pill gold">${item.mastered ? 'OK' : index + 1}</span>
+      <span><strong></strong><br><span class="meta"></span></span>
+      <span class="meta">${item.mastered ? 'Da thuoc' : 'Dang hoc'}</span>
     `;
-    row.querySelector('.title').textContent = card.front;
-    row.querySelector('.meta').textContent = card.back;
-    row.querySelector('input').addEventListener('change', () => toggleCard(card.id));
-    row.querySelector('.ghost').addEventListener('click', claimDeckReward);
-    row.querySelector('.danger').addEventListener('click', () => deleteCard(card.id));
+    row.querySelector('strong').textContent = item.front;
+    row.querySelector('.meta').textContent = item.back;
+    row.addEventListener('click', () => {
+      currentCardIndex = index;
+      showingBack = false;
+      renderFlashcards();
+    });
     list.appendChild(row);
   });
+}
+
+function tasksForSelectedDate() {
+  return state.tasks
+    .filter((task) => task.dateKey === selectedDate)
+    .sort((a, b) => Number(a.done) - Number(b.done) || a.title.localeCompare(b.title));
+}
+
+function shiftDate(days) {
+  const date = new Date(`${selectedDate}T00:00:00`);
+  date.setDate(date.getDate() + days);
+  selectedDate = date.toISOString().slice(0, 10);
+  renderTasks();
 }
 
 function toggleTask(id, done) {
@@ -213,6 +292,7 @@ function toggleTask(id, done) {
   if (!task || task.done === done) return;
   task.done = done;
   state.coins = Math.max(0, state.coins + (done ? task.reward : -task.reward));
+  if (done) showCoinBurst(task.reward);
   persistAndSync();
 }
 
@@ -222,8 +302,26 @@ function editTask(id) {
   const title = window.prompt('Sua nhiem vu', task.title);
   if (!title?.trim()) return;
   const reward = window.prompt('So xu', String(task.reward));
+  const oldReward = task.reward;
   task.title = title.trim();
   task.reward = positiveInt(reward, task.reward);
+  if (task.done) state.coins = Math.max(0, state.coins - oldReward + task.reward);
+  persistAndSync();
+}
+
+function copyTask(id) {
+  const task = state.tasks.find((item) => item.id === id);
+  if (!task) return;
+  const targetDate = window.prompt('Sao chep sang ngay (YYYY-MM-DD)', nextDayKey(selectedDate));
+  if (!isDateKey(targetDate)) return;
+  state.tasks.push({
+    id: newId(),
+    title: task.title,
+    dateKey: targetDate,
+    reward: task.reward,
+    done: false,
+  });
+  showToast(`Da sao chep sang ${targetDate}.`);
   persistAndSync();
 }
 
@@ -234,9 +332,52 @@ function deleteTask(id) {
   persistAndSync();
 }
 
+function saveShopItem() {
+  const name = $('shopName').value.trim();
+  if (!name) return;
+  const payload = {
+    name,
+    price: positiveInt($('shopPrice').value, 50),
+    note: $('shopNote').value.trim(),
+  };
+
+  if (editingShopId) {
+    const item = state.shopItems.find((entry) => entry.id === editingShopId);
+    if (item) Object.assign(item, payload);
+  } else {
+    state.shopItems.push({ id: newId(), ...payload, bought: false });
+  }
+
+  clearShopForm();
+  persistAndSync();
+}
+
+function editShopItem(id) {
+  const item = state.shopItems.find((entry) => entry.id === id);
+  if (!item) return;
+  editingShopId = id;
+  $('shopName').value = item.name;
+  $('shopPrice').value = item.price;
+  $('shopNote').value = item.note;
+  $('shopSubmit').textContent = 'Luu';
+  $('shopCancel').classList.remove('hidden');
+  $('shopName').focus();
+}
+
+function clearShopForm() {
+  editingShopId = null;
+  $('shopForm').reset();
+  $('shopPrice').value = 50;
+  $('shopCancel').classList.add('hidden');
+}
+
 function buyItem(id) {
   const item = state.shopItems.find((entry) => entry.id === id);
-  if (!item || item.bought || state.coins < item.price) return;
+  if (!item || item.bought) return;
+  if (state.coins < item.price) {
+    showToast('Chua du xu de doi vat pham nay.');
+    return;
+  }
   item.bought = true;
   state.coins -= item.price;
   persistAndSync();
@@ -247,25 +388,144 @@ function deleteShopItem(id) {
   persistAndSync();
 }
 
-function toggleCard(id) {
-  const card = state.flashCards.find((item) => item.id === id);
+function editDeck(id) {
+  const deck = state.flashDecks.find((item) => item.id === id);
+  if (!deck) return;
+  const name = window.prompt('Sua ten bo flashcard', deck.name);
+  if (!name?.trim()) return;
+  deck.name = name.trim();
+  persistAndSync();
+}
+
+function deleteDeck(id) {
+  if (state.flashDecks.length <= 1) return;
+  state.flashDecks = state.flashDecks.filter((deck) => deck.id !== id);
+  state.flashCards = state.flashCards.filter((card) => card.deckId !== id);
+  ensureSelectedDeck();
+  currentCardIndex = 0;
+  showingBack = false;
+  persistAndSync();
+}
+
+function addCards(cards) {
+  const normalized = cards
+    .map((card) => ({ front: card.front.trim(), back: card.back.trim() }))
+    .filter((card) => card.front && card.back);
+  if (!normalized.length) return;
+  state.flashCards.push(
+    ...normalized.map((card) => ({
+      id: newId(),
+      deckId: selectedDeckId,
+      front: card.front,
+      back: card.back,
+      mastered: false,
+    })),
+  );
+  const deck = state.flashDecks.find((item) => item.id === selectedDeckId);
+  if (deck) deck.rewardClaimed = false;
+  showToast(`Da nhap ${normalized.length} flashcard.`);
+  persistAndSync();
+}
+
+function parseRawCards(rawText) {
+  return rawText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const separator = line.includes(':') ? ':' : line.includes('\t') ? '\t' : ',';
+      const [front, ...rest] = line.split(separator);
+      return { front: front || '', back: rest.join(separator) || '' };
+    })
+    .filter((card) => card.front.trim() && card.back.trim());
+}
+
+async function importExcelCards(event) {
+  const file = event.target.files?.[0];
+  event.target.value = '';
+  if (!file) return;
+  if (!window.XLSX) {
+    showToast('Thu vien doc Excel chua tai xong. Thu lai sau vai giay.');
+    return;
+  }
+
+  try {
+    const buffer = await file.arrayBuffer();
+    const workbook = window.XLSX.read(buffer, { type: 'array' });
+    const cards = [];
+    workbook.SheetNames.forEach((sheetName) => {
+      const rows = window.XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {
+        header: 1,
+        raw: false,
+        defval: '',
+      });
+      rows.forEach((row) => {
+        const values = row.map((value) => String(value).trim()).filter(Boolean);
+        if (!values.length) return;
+        if (values.length >= 2) {
+          cards.push({ front: values[0], back: values[1] });
+        } else if (values[0].includes(':')) {
+          cards.push(...parseRawCards(values[0]));
+        }
+      });
+    });
+    if (!cards.length) {
+      showToast('Khong tim thay cap tu vung/nghia trong Excel.');
+      return;
+    }
+    addCards(cards);
+  } catch {
+    showToast('Khong the doc file Excel.');
+  }
+}
+
+function flipCard() {
+  if (!cardsForDeck(selectedDeckId).length) return;
+  showingBack = !showingBack;
+  renderFlashcards();
+}
+
+function moveCard(direction) {
+  const cards = cardsForDeck(selectedDeckId);
+  currentCardIndex = Math.min(Math.max(currentCardIndex + direction, 0), Math.max(0, cards.length - 1));
+  showingBack = false;
+  renderFlashcards();
+}
+
+function toggleCurrentCardMastered() {
+  const card = cardsForDeck(selectedDeckId)[currentCardIndex];
   if (!card) return;
   card.mastered = !card.mastered;
   persistAndSync();
 }
 
-function deleteCard(id) {
-  state.flashCards = state.flashCards.filter((card) => card.id !== id);
+function deleteCurrentCard() {
+  const card = cardsForDeck(selectedDeckId)[currentCardIndex];
+  if (!card) return;
+  state.flashCards = state.flashCards.filter((item) => item.id !== card.id);
+  currentCardIndex = Math.max(0, currentCardIndex - 1);
+  showingBack = false;
   persistAndSync();
 }
 
 function claimDeckReward() {
   const deck = state.flashDecks.find((item) => item.id === selectedDeckId);
-  const cards = state.flashCards.filter((card) => card.deckId === selectedDeckId);
+  const cards = cardsForDeck(selectedDeckId);
   if (!deck || deck.rewardClaimed || cards.length === 0 || cards.some((card) => !card.mastered)) return;
-  state.coins += Math.max(20, cards.length * 5);
+  const reward = rewardForCards(cards.length);
+  state.coins += reward;
   deck.rewardClaimed = true;
+  showCoinBurst(reward);
+  showToast(`Da nhan ${reward} xu cho bo hoc nay.`);
   persistAndSync();
+}
+
+function cardsForDeck(deckId) {
+  return state.flashCards.filter((card) => card.deckId === deckId);
+}
+
+function rewardForCards(total) {
+  return Math.max(20, total * 5);
 }
 
 async function persistAndSync() {
@@ -333,12 +593,51 @@ function saveLocalState() {
 function normalizeState(raw = {}) {
   return {
     coins: positiveInt(raw.coins, 0),
-    tasks: Array.isArray(raw.tasks) ? raw.tasks : [],
-    shopItems: Array.isArray(raw.shopItems) ? raw.shopItems : [],
+    tasks: Array.isArray(raw.tasks) ? raw.tasks.map(normalizeTask) : [],
+    shopItems: Array.isArray(raw.shopItems) ? raw.shopItems.map(normalizeShopItem) : [],
     flashDecks: Array.isArray(raw.flashDecks) && raw.flashDecks.length
-      ? raw.flashDecks
+      ? raw.flashDecks.map(normalizeDeck)
       : [{ id: 'default-flashcard-deck', name: 'Tu vung chung', createdAt: 0, rewardClaimed: false }],
-    flashCards: Array.isArray(raw.flashCards) ? raw.flashCards : [],
+    flashCards: Array.isArray(raw.flashCards) ? raw.flashCards.map(normalizeCard) : [],
+  };
+}
+
+function normalizeTask(task = {}) {
+  return {
+    id: String(task.id || newId()),
+    title: String(task.title || ''),
+    dateKey: String(task.dateKey || todayKey()),
+    reward: Math.max(1, positiveInt(task.reward, 20)),
+    done: Boolean(task.done),
+  };
+}
+
+function normalizeShopItem(item = {}) {
+  return {
+    id: String(item.id || newId()),
+    name: String(item.name || ''),
+    price: Math.max(1, positiveInt(item.price, 50)),
+    note: String(item.note || ''),
+    bought: Boolean(item.bought),
+  };
+}
+
+function normalizeDeck(deck = {}) {
+  return {
+    id: String(deck.id || newId()),
+    name: String(deck.name || 'Tu vung chung'),
+    createdAt: Number.parseInt(deck.createdAt, 10) || 0,
+    rewardClaimed: Boolean(deck.rewardClaimed),
+  };
+}
+
+function normalizeCard(card = {}) {
+  return {
+    id: String(card.id || newId()),
+    deckId: String(card.deckId || 'default-flashcard-deck'),
+    front: String(card.front || ''),
+    back: String(card.back || ''),
+    mastered: Boolean(card.mastered),
   };
 }
 
@@ -353,6 +652,33 @@ function setSyncStatus(text, status) {
   $('syncDot').className = `sync-dot ${status === 'online' ? 'online' : status === 'offline' ? 'offline' : ''}`;
 }
 
+function showToast(text) {
+  const toast = $('toast');
+  toast.textContent = text;
+  toast.classList.add('show');
+  window.clearTimeout(showToast.timer);
+  showToast.timer = window.setTimeout(() => toast.classList.remove('show'), 2400);
+}
+
+function showCoinBurst(amount) {
+  const burst = $('coinBurst');
+  burst.innerHTML = '';
+  for (let index = 0; index < 14; index += 1) {
+    const coin = document.createElement('span');
+    coin.className = 'coin-pop';
+    coin.textContent = '+';
+    const angle = (Math.PI * 2 * index) / 14;
+    const distance = 70 + Math.random() * 80;
+    coin.style.setProperty('--x', `${Math.cos(angle) * distance}px`);
+    coin.style.setProperty('--y', `${Math.sin(angle) * distance - 90}px`);
+    burst.appendChild(coin);
+  }
+  showToast(`+${amount} xu`);
+  window.setTimeout(() => {
+    burst.innerHTML = '';
+  }, 900);
+}
+
 function positiveInt(value, fallback) {
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
@@ -364,4 +690,14 @@ function newId() {
 
 function todayKey() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function nextDayKey(dateKey) {
+  const date = new Date(`${dateKey}T00:00:00`);
+  date.setDate(date.getDate() + 1);
+  return date.toISOString().slice(0, 10);
+}
+
+function isDateKey(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value || '') && !Number.isNaN(new Date(`${value}T00:00:00`).getTime());
 }
