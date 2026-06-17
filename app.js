@@ -263,11 +263,10 @@ function renderFlashcards() {
     row.type = 'button';
     row.innerHTML = `
       <span class="pill gold">${item.mastered ? 'OK' : index + 1}</span>
-      <span><strong></strong><br><span class="meta"></span></span>
+      <span><strong></strong><br><span class="meta">Từ vựng</span></span>
       <span class="meta">${item.mastered ? 'Đã thuộc' : 'Đang học'}</span>
     `;
     row.querySelector('strong').textContent = item.front;
-    row.querySelector('.meta').textContent = item.back;
     row.addEventListener('click', () => {
       currentCardIndex = index;
       showingBack = false;
