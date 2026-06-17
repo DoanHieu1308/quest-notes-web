@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Quest Notes</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar">
+        <div>
+          <p class="eyebrow">Quest Notes</p>
+          <h1>Nhiem vu, xu va flashcard</h1>
+        </div>
+        <div class="coin-panel">
+          <span>So xu</span>
+          <strong id="coinCount">0</strong>
+        </div>
+        <nav class="tabs" aria-label="Quest Notes sections">
+          <button class="tab active" data-view="tasks">Tasks</button>
+          <button class="tab" data-view="shop">Shop</button>
+          <button class="tab" data-view="flashcards">Flashcards</button>
+        </nav>
+        <div class="sync-line">
+          <span id="syncDot" class="sync-dot"></span>
+          <span id="syncText">Dang ket noi...</span>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <section id="tasksView" class="view active">
+          <header class="section-head">
+            <div>
+              <p class="eyebrow">Daily board</p>
+              <h2>Tasks</h2>
+            </div>
+            <input id="taskDate" type="date" />
+          </header>
+          <form id="taskForm" class="form-row">
+            <input id="taskTitle" placeholder="Them nhiem vu" autocomplete="off" />
+            <input id="taskReward" type="number" min="1" value="10" aria-label="Reward" />
+            <button type="submit">Them</button>
+          </form>
+          <div id="taskList" class="list"></div>
+        </section>
+
+        <section id="shopView" class="view">
+          <header class="section-head">
+            <div>
+              <p class="eyebrow">Rewards</p>
+              <h2>Shop</h2>
+            </div>
+          </header>
+          <form id="shopForm" class="form-grid">
+            <input id="shopName" placeholder="Ten phan thuong" autocomplete="off" />
+            <input id="shopPrice" type="number" min="1" value="50" aria-label="Price" />
+            <input id="shopNote" placeholder="Ghi chu" autocomplete="off" />
+            <button type="submit">Luu</button>
+          </form>
+          <div id="shopList" class="list"></div>
+        </section>
+
+        <section id="flashcardsView" class="view">
+          <header class="section-head">
+            <div>
+              <p class="eyebrow">Study decks</p>
+              <h2>Flashcards</h2>
+            </div>
+          </header>
+          <form id="deckForm" class="form-row">
+            <input id="deckName" placeholder="Ten bo the" autocomplete="off" />
+            <button type="submit">Them bo</button>
+          </form>
+          <div id="deckList" class="deck-strip"></div>
+          <form id="cardForm" class="form-grid">
+            <input id="cardFront" placeholder="Mat truoc" autocomplete="off" />
+            <input id="cardBack" placeholder="Mat sau" autocomplete="off" />
+            <button type="submit">Them the</button>
+          </form>
+          <div id="cardList" class="list"></div>
+        </section>
+      </main>
+    </div>
+
+    <script src="./config.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
