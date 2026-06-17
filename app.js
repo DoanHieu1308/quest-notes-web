@@ -11,6 +11,7 @@ let selectedDeckId = state.flashDecks[0]?.id || 'default-flashcard-deck';
 let currentCardIndex = 0;
 let showingBack = false;
 let editingShopId = null;
+let activeActionButton = null;
 
 const $ = (id) => document.getElementById(id);
 const weekdays = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
@@ -36,57 +37,65 @@ function bindEvents() {
 
   $('taskForm').addEventListener('submit', (event) => {
     event.preventDefault();
-    const title = $('taskTitle').value.trim();
-    if (!title) return;
-    state.tasks.push({
-      id: newId(),
-      title,
-      dateKey: selectedDate,
-      reward: positiveInt($('taskReward').value, 20),
-      done: false,
+    runActionWithLoading(event.submitter, async () => {
+      const title = $('taskTitle').value.trim();
+      if (!title) return;
+      state.tasks.push({
+        id: newId(),
+        title,
+        dateKey: selectedDate,
+        reward: positiveInt($('taskReward').value, 20),
+        done: false,
+      });
+      $('taskTitle').value = '';
+      await persistAndSync();
     });
-    $('taskTitle').value = '';
-    persistAndSync();
   });
 
   $('shopForm').addEventListener('submit', (event) => {
     event.preventDefault();
-    saveShopItem();
+    runActionWithLoading(event.submitter, () => saveShopItem());
   });
   $('shopCancel').addEventListener('click', clearShopForm);
 
   $('deckForm').addEventListener('submit', (event) => {
     event.preventDefault();
-    const name = $('deckName').value.trim();
-    if (!name) return;
-    const deck = { id: newId(), name, createdAt: Date.now(), rewardClaimed: false };
-    state.flashDecks.push(deck);
-    selectedDeckId = deck.id;
-    currentCardIndex = 0;
-    showingBack = false;
-    $('deckName').value = '';
-    persistAndSync();
+    runActionWithLoading(event.submitter, async () => {
+      const name = $('deckName').value.trim();
+      if (!name) return;
+      const deck = { id: newId(), name, createdAt: Date.now(), rewardClaimed: false };
+      state.flashDecks.push(deck);
+      selectedDeckId = deck.id;
+      currentCardIndex = 0;
+      showingBack = false;
+      $('deckName').value = '';
+      await persistAndSync();
+    });
   });
 
   $('cardForm').addEventListener('submit', (event) => {
     event.preventDefault();
-    const front = $('cardFront').value.trim();
-    const back = $('cardBack').value.trim();
-    if (!front || !back) return;
-    addCards([{ front, back }]);
-    $('cardFront').value = '';
-    $('cardBack').value = '';
+    runActionWithLoading(event.submitter, async () => {
+      const front = $('cardFront').value.trim();
+      const back = $('cardBack').value.trim();
+      if (!front || !back) return;
+      await addCards([{ front, back }]);
+      $('cardFront').value = '';
+      $('cardBack').value = '';
+    });
   });
 
   $('bulkCardForm').addEventListener('submit', (event) => {
     event.preventDefault();
-    const cards = parseRawCards($('bulkCards').value);
-    if (!cards.length) {
-      showToast('Đúng mẫu: từ vựng : nghĩa, mỗi dòng một thẻ.');
-      return;
-    }
-    addCards(cards);
-    $('bulkCards').value = '';
+    runActionWithLoading(event.submitter, async () => {
+      const cards = parseRawCards($('bulkCards').value);
+      if (!cards.length) {
+        showToast('Đúng mẫu: từ vựng : nghĩa, mỗi dòng một thẻ.');
+        return;
+      }
+      await addCards(cards);
+      $('bulkCards').value = '';
+    });
   });
 
   $('toggleImportMenu').addEventListener('click', toggleImportMenu);
@@ -100,9 +109,15 @@ function bindEvents() {
   });
   $('prevCard').addEventListener('click', () => moveCard(-1));
   $('nextCard').addEventListener('click', () => moveCard(1));
-  $('toggleMastered').addEventListener('click', toggleCurrentCardMastered);
-  $('deleteCard').addEventListener('click', deleteCurrentCard);
-  $('claimDeckReward').addEventListener('click', claimDeckReward);
+  $('toggleMastered').addEventListener('click', (event) => {
+    runActionWithLoading(event.currentTarget, toggleCurrentCardMastered);
+  });
+  $('deleteCard').addEventListener('click', (event) => {
+    runActionWithLoading(event.currentTarget, deleteCurrentCard);
+  });
+  $('claimDeckReward').addEventListener('click', (event) => {
+    runActionWithLoading(event.currentTarget, claimDeckReward);
+  });
 
   window.addEventListener('online', syncFromServer);
 }
@@ -157,10 +172,14 @@ function renderTasks() {
       </div>
     `;
     row.querySelector('.title').textContent = task.title;
-    row.querySelector('.quest-toggle').addEventListener('click', () => toggleTask(task.id, !task.done));
+    row.querySelector('.quest-toggle').addEventListener('click', (event) => {
+      runActionWithLoading(event.currentTarget, () => toggleTask(task.id, !task.done));
+    });
     row.querySelector('.edit').addEventListener('click', () => editTask(task.id));
     row.querySelector('.copy').addEventListener('click', () => copyTask(task.id));
-    row.querySelector('.delete').addEventListener('click', () => deleteTask(task.id));
+    row.querySelector('.delete').addEventListener('click', (event) => {
+      runActionWithLoading(event.currentTarget, () => deleteTask(task.id));
+    });
     list.appendChild(row);
   });
 }
@@ -187,9 +206,13 @@ function renderShop() {
     row.querySelector('.title').textContent = item.name;
     row.querySelector('.meta').textContent = `${item.price} xu${item.note ? ` - ${item.note}` : ''}`;
     row.querySelector('.buy').disabled = item.bought;
-    row.querySelector('.buy').addEventListener('click', () => buyItem(item.id));
+    row.querySelector('.buy').addEventListener('click', (event) => {
+      runActionWithLoading(event.currentTarget, () => buyItem(item.id));
+    });
     row.querySelector('.edit').addEventListener('click', () => editShopItem(item.id));
-    row.querySelector('.delete').addEventListener('click', () => deleteShopItem(item.id));
+    row.querySelector('.delete').addEventListener('click', (event) => {
+      runActionWithLoading(event.currentTarget, () => deleteShopItem(item.id));
+    });
     list.appendChild(row);
   });
 }
@@ -221,7 +244,9 @@ function renderFlashcards() {
     });
     row.querySelector('.edit').addEventListener('click', () => editDeck(deck.id));
     row.querySelector('.delete').disabled = state.flashDecks.length <= 1;
-    row.querySelector('.delete').addEventListener('click', () => deleteDeck(deck.id));
+    row.querySelector('.delete').addEventListener('click', (event) => {
+      runActionWithLoading(event.currentTarget, () => deleteDeck(deck.id));
+    });
     deckList.appendChild(row);
   });
 
@@ -280,8 +305,12 @@ function renderFlashcards() {
       showingBack = false;
       renderFlashcards();
     });
-    row.querySelector('.edit-card').addEventListener('click', () => editFlashCard(item.id));
-    row.querySelector('.delete-card').addEventListener('click', () => deleteFlashCard(item.id));
+    row.querySelector('.edit-card').addEventListener('click', (event) => {
+      runActionWithLoading(event.currentTarget, () => editFlashCard(item.id));
+    });
+    row.querySelector('.delete-card').addEventListener('click', (event) => {
+      runActionWithLoading(event.currentTarget, () => deleteFlashCard(item.id));
+    });
     list.appendChild(row);
   });
 }
@@ -305,7 +334,7 @@ function toggleTask(id, done) {
   task.done = done;
   state.coins = Math.max(0, state.coins + (done ? task.reward : -task.reward));
   if (done) showCoinBurst(task.reward);
-  persistAndSync();
+  return persistAndSync();
 }
 
 function editTask(id) {
@@ -318,7 +347,7 @@ function editTask(id) {
   task.title = title.trim();
   task.reward = positiveInt(reward, task.reward);
   if (task.done) state.coins = Math.max(0, state.coins - oldReward + task.reward);
-  persistAndSync();
+  return persistAndSync();
 }
 
 function copyTask(id) {
@@ -334,14 +363,14 @@ function copyTask(id) {
     done: false,
   });
   showToast(`Đã sao chép sang ${targetDate}.`);
-  persistAndSync();
+  return persistAndSync();
 }
 
 function deleteTask(id) {
   const task = state.tasks.find((item) => item.id === id);
   if (task?.done) state.coins = Math.max(0, state.coins - task.reward);
   state.tasks = state.tasks.filter((item) => item.id !== id);
-  persistAndSync();
+  return persistAndSync();
 }
 
 function saveShopItem() {
@@ -361,7 +390,7 @@ function saveShopItem() {
   }
 
   clearShopForm();
-  persistAndSync();
+  return persistAndSync();
 }
 
 function editShopItem(id) {
@@ -392,12 +421,12 @@ function buyItem(id) {
   }
   item.bought = true;
   state.coins -= item.price;
-  persistAndSync();
+  return persistAndSync();
 }
 
 function deleteShopItem(id) {
   state.shopItems = state.shopItems.filter((item) => item.id !== id);
-  persistAndSync();
+  return persistAndSync();
 }
 
 function editDeck(id) {
@@ -406,7 +435,7 @@ function editDeck(id) {
   const name = window.prompt('Sửa tên bộ flashcard', deck.name);
   if (!name?.trim()) return;
   deck.name = name.trim();
-  persistAndSync();
+  return persistAndSync();
 }
 
 function deleteDeck(id) {
@@ -416,7 +445,7 @@ function deleteDeck(id) {
   ensureSelectedDeck();
   currentCardIndex = 0;
   showingBack = false;
-  persistAndSync();
+  return persistAndSync();
 }
 
 function editFlashCard(id) {
@@ -428,7 +457,7 @@ function editFlashCard(id) {
   if (!back?.trim()) return;
   card.front = front.trim();
   card.back = back.trim();
-  persistAndSync();
+  return persistAndSync();
 }
 
 function deleteFlashCard(id) {
@@ -438,7 +467,7 @@ function deleteFlashCard(id) {
   const cards = cardsForDeck(selectedDeckId);
   currentCardIndex = Math.min(currentCardIndex, Math.max(0, cards.length - 1));
   showingBack = false;
-  persistAndSync();
+  return persistAndSync();
 }
 
 function addCards(cards) {
@@ -459,7 +488,7 @@ function addCards(cards) {
   if (deck) deck.rewardClaimed = false;
   showToast(`Đã nhập ${normalized.length} flashcard.`);
   setImportMenuOpen(false);
-  persistAndSync();
+  return persistAndSync();
 }
 
 function toggleImportMenu() {
@@ -540,7 +569,7 @@ function toggleCurrentCardMastered() {
   const card = cardsForDeck(selectedDeckId)[currentCardIndex];
   if (!card) return;
   card.mastered = !card.mastered;
-  persistAndSync();
+  return persistAndSync();
 }
 
 function deleteCurrentCard() {
@@ -549,7 +578,7 @@ function deleteCurrentCard() {
   state.flashCards = state.flashCards.filter((item) => item.id !== card.id);
   currentCardIndex = Math.max(0, currentCardIndex - 1);
   showingBack = false;
-  persistAndSync();
+  return persistAndSync();
 }
 
 function claimDeckReward() {
@@ -561,7 +590,7 @@ function claimDeckReward() {
   deck.rewardClaimed = true;
   showCoinBurst(reward);
   showToast(`Đã nhận ${reward} xu cho bộ học này.`);
-  persistAndSync();
+  return persistAndSync();
 }
 
 function cardsForDeck(deckId) {
@@ -572,9 +601,32 @@ function rewardForCards(total) {
   return Math.max(20, total * 5);
 }
 
+async function runActionWithLoading(button, action) {
+  if (!(button instanceof HTMLButtonElement) || button.classList.contains('is-loading')) {
+    await action();
+    return;
+  }
+
+  activeActionButton = button;
+  button.disabled = true;
+  button.classList.add('is-loading');
+  try {
+    await action();
+  } finally {
+    button.classList.remove('is-loading');
+    button.disabled = false;
+    activeActionButton = null;
+  }
+}
+
 async function persistAndSync() {
   saveLocalState();
   localStorage.setItem(PENDING_KEY, '1');
+  if (activeActionButton) {
+    await pushState();
+    render();
+    return;
+  }
   render();
   await pushState();
 }

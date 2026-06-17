@@ -54,6 +54,33 @@ button:disabled {
   opacity: 0.5;
 }
 
+button.is-loading {
+  position: relative;
+  color: transparent !important;
+  pointer-events: none;
+}
+
+button.is-loading::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  margin-left: -9px;
+  margin-top: -9px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  color: white;
+  animation: spin 700ms linear infinite;
+}
+
+button.ghost.is-loading::after,
+button.gold-button.is-loading::after {
+  color: var(--accent-dark);
+}
+
 button.ghost {
   background: white;
   border: 1px solid var(--line);
@@ -815,6 +842,12 @@ h3 {
   to {
     opacity: 0;
     transform: translate(var(--x), var(--y)) scale(0.6);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 
