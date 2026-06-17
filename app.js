@@ -258,20 +258,30 @@ function renderFlashcards() {
   const list = $('cardList');
   list.innerHTML = cards.length ? '' : '<div class="empty">Bộ này đang trống. Nhập theo mẫu từ vựng : nghĩa để bắt đầu.</div>';
   cards.forEach((item, index) => {
-    const row = document.createElement('button');
+    const row = document.createElement('article');
     row.className = `mini-card ${index === currentCardIndex ? 'active' : ''}`;
-    row.type = 'button';
     row.innerHTML = `
-      <span class="pill gold">${item.mastered ? 'OK' : index + 1}</span>
-      <strong></strong>
-      <span class="meta">${item.mastered ? 'Đã thuộc' : 'Đang học'}</span>
+      <button class="mini-open" type="button">
+        <span class="pill gold">${item.mastered ? 'OK' : index + 1}</span>
+        <strong></strong>
+        <span class="meta">${item.mastered ? 'Đã thuộc' : 'Đang học'}</span>
+      </button>
+      <details class="mini-menu">
+        <summary aria-label="Thao tác thẻ">⋮</summary>
+        <div class="mini-menu-panel">
+          <button class="ghost edit-card" type="button">Sửa</button>
+          <button class="danger delete-card" type="button">Xóa</button>
+        </div>
+      </details>
     `;
     row.querySelector('strong').textContent = item.front;
-    row.addEventListener('click', () => {
+    row.querySelector('.mini-open').addEventListener('click', () => {
       currentCardIndex = index;
       showingBack = false;
       renderFlashcards();
     });
+    row.querySelector('.edit-card').addEventListener('click', () => editFlashCard(item.id));
+    row.querySelector('.delete-card').addEventListener('click', () => deleteFlashCard(item.id));
     list.appendChild(row);
   });
 }
@@ -405,6 +415,28 @@ function deleteDeck(id) {
   state.flashCards = state.flashCards.filter((card) => card.deckId !== id);
   ensureSelectedDeck();
   currentCardIndex = 0;
+  showingBack = false;
+  persistAndSync();
+}
+
+function editFlashCard(id) {
+  const card = state.flashCards.find((item) => item.id === id);
+  if (!card) return;
+  const front = window.prompt('Sửa từ vựng', card.front);
+  if (!front?.trim()) return;
+  const back = window.prompt('Sửa nghĩa', card.back);
+  if (!back?.trim()) return;
+  card.front = front.trim();
+  card.back = back.trim();
+  persistAndSync();
+}
+
+function deleteFlashCard(id) {
+  const card = state.flashCards.find((item) => item.id === id);
+  if (!card) return;
+  state.flashCards = state.flashCards.filter((item) => item.id !== id);
+  const cards = cardsForDeck(selectedDeckId);
+  currentCardIndex = Math.min(currentCardIndex, Math.max(0, cards.length - 1));
   showingBack = false;
   persistAndSync();
 }

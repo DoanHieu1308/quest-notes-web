@@ -659,17 +659,88 @@ h3 {
 
 .mini-card {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: 1fr auto;
   align-items: center;
   gap: 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel);
-  padding: 10px;
+  color: var(--ink);
+  padding: 8px;
 }
 
 .mini-card.active {
   border-color: var(--accent);
+}
+
+.mini-open {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 38px;
+  background: transparent;
+  color: var(--ink);
+  padding: 0 6px;
+  text-align: left;
+}
+
+.mini-open:hover {
+  background: transparent;
+}
+
+.mini-open strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mini-menu {
+  position: relative;
+}
+
+.mini-menu summary {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 8px;
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 22px;
+  font-weight: 900;
+  list-style: none;
+}
+
+.mini-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.mini-menu summary:hover {
+  background: #eef7f3;
+}
+
+.mini-menu-panel {
+  position: absolute;
+  right: 0;
+  top: 42px;
+  z-index: 10;
+  display: grid;
+  min-width: 112px;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  padding: 8px;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.12);
+}
+
+.mini-menu-panel button {
+  min-height: 34px;
+  padding: 0 10px;
 }
 
 .empty {
@@ -781,6 +852,10 @@ h3 {
   .quest-item,
   .mini-card {
     grid-template-columns: 1fr;
+  }
+
+  .mini-card {
+    grid-template-columns: 1fr auto;
   }
 
   .row-actions {
