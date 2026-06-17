@@ -89,6 +89,7 @@ function bindEvents() {
     $('bulkCards').value = '';
   });
 
+  $('toggleImportMenu').addEventListener('click', toggleImportMenu);
   $('excelInput').addEventListener('change', importExcelCards);
   $('flashCard').addEventListener('click', flipCard);
   $('flashCard').addEventListener('keydown', (event) => {
@@ -424,7 +425,17 @@ function addCards(cards) {
   const deck = state.flashDecks.find((item) => item.id === selectedDeckId);
   if (deck) deck.rewardClaimed = false;
   showToast(`Da nhap ${normalized.length} flashcard.`);
+  setImportMenuOpen(false);
   persistAndSync();
+}
+
+function toggleImportMenu() {
+  setImportMenuOpen($('importMenu').classList.contains('hidden'));
+}
+
+function setImportMenuOpen(open) {
+  $('importMenu').classList.toggle('hidden', !open);
+  $('toggleImportMenu').setAttribute('aria-expanded', String(open));
 }
 
 function parseRawCards(rawText) {

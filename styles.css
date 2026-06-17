@@ -513,8 +513,8 @@ h3 {
 }
 
 .flash-card {
-  height: 270px;
-  margin: 14px 0 12px;
+  height: clamp(360px, 52vh, 520px);
+  margin: 18px 0 14px;
   perspective: 1000px;
 }
 
@@ -537,7 +537,7 @@ h3 {
   place-items: center;
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 24px;
+  padding: 36px;
   backface-visibility: hidden;
   text-align: center;
 }
@@ -554,8 +554,8 @@ h3 {
 
 .face-label {
   position: absolute;
-  top: 14px;
-  left: 16px;
+  top: 18px;
+  left: 20px;
   color: var(--muted);
   font-size: 12px;
   font-weight: 900;
@@ -569,7 +569,7 @@ h3 {
 .flash-face strong {
   max-width: 100%;
   overflow-wrap: anywhere;
-  font-size: 34px;
+  font-size: clamp(42px, 7vw, 72px);
   line-height: 1.12;
 }
 
@@ -587,11 +587,22 @@ h3 {
   font-weight: 850;
 }
 
-.import-grid {
+.import-menu {
   display: grid;
   grid-template-columns: 1.2fr 1fr;
   gap: 10px;
   margin-top: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 253, 248, 0.82);
+  padding: 12px;
+  animation: pop-in 160ms ease-out both;
+}
+
+.import-side {
+  display: grid;
+  align-content: start;
+  gap: 10px;
 }
 
 .bulk-form,
@@ -716,8 +727,12 @@ h3 {
 @media (max-width: 900px) {
   .app,
   .flash-layout,
-  .import-grid {
+  .import-menu {
     grid-template-columns: 1fr;
+  }
+
+  .flash-card {
+    height: clamp(330px, 55vh, 460px);
   }
 
   .sidebar {

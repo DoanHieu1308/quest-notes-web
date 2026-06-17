@@ -130,23 +130,26 @@
                 <span id="cardCounter">0/0</span>
                 <button id="nextCard" class="icon-button" type="button" aria-label="The sau">›</button>
                 <button id="toggleMastered" class="ghost" type="button">Da thuoc</button>
+                <button id="toggleImportMenu" class="ghost" type="button" aria-expanded="false">Nhap tu vung</button>
                 <button id="deleteCard" class="danger" type="button">Xoa the</button>
               </div>
 
-              <div class="import-grid">
+              <div id="importMenu" class="import-menu hidden">
                 <form id="bulkCardForm" class="control-panel bulk-form">
                   <textarea id="bulkCards" placeholder="hello : xin chao&#10;apple : qua tao"></textarea>
                   <button type="submit">Them nhieu tu</button>
                 </form>
-                <form id="cardForm" class="control-panel card-form">
-                  <input id="cardFront" placeholder="Tu vung" autocomplete="off" />
-                  <input id="cardBack" placeholder="Nghia" autocomplete="off" />
-                  <button type="submit">Them the</button>
-                </form>
-                <label class="excel-upload">
-                  <input id="excelInput" type="file" accept=".xlsx,.xls" />
-                  <span>Nhap Excel</span>
-                </label>
+                <div class="import-side">
+                  <form id="cardForm" class="control-panel card-form">
+                    <input id="cardFront" placeholder="Tu vung" autocomplete="off" />
+                    <input id="cardBack" placeholder="Nghia" autocomplete="off" />
+                    <button type="submit">Them the</button>
+                  </form>
+                  <label class="excel-upload">
+                    <input id="excelInput" type="file" accept=".xlsx,.xls" />
+                    <span>Nhap Excel</span>
+                  </label>
+                </div>
               </div>
 
               <div id="cardList" class="mini-list"></div>
