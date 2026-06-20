@@ -533,12 +533,16 @@ async function importExcelCards(event) {
         defval: '',
       });
       rows.forEach((row) => {
-        const values = row.map((value) => String(value).trim()).filter(Boolean);
-        if (!values.length) return;
-        if (values.length >= 2) {
-          cards.push({ front: values[0], back: values[1] });
-        } else if (values[0].includes(':')) {
-          cards.push(...parseRawCards(values[0]));
+        const front = String(row[0] || '').trim();
+        const meaning = String(row[1] || '').trim();
+        const phonetic = String(row[2] || '').trim();
+        if (!front) return;
+        if (isFlashcardHeaderRow(front, meaning, phonetic)) return;
+        const back = flashcardBackText(meaning, phonetic);
+        if (back) {
+          cards.push({ front, back });
+        } else if (front.includes(':')) {
+          cards.push(...parseRawCards(front));
         }
       });
     });
@@ -550,6 +554,29 @@ async function importExcelCards(event) {
   } catch {
     showToast('Không thể đọc file Excel.');
   }
+}
+
+function flashcardBackText(meaning, phonetic) {
+  const parts = [];
+  if (meaning) parts.push(meaning);
+  if (phonetic) parts.push(`[${stripOuterBrackets(phonetic)}]`);
+  return parts.join('\n');
+}
+
+function stripOuterBrackets(value) {
+  const trimmed = String(value || '').trim();
+  return trimmed.startsWith('[') && trimmed.endsWith(']') && trimmed.length > 1
+    ? trimmed.slice(1, -1).trim()
+    : trimmed;
+}
+
+function isFlashcardHeaderRow(front, meaning, phonetic) {
+  const normalized = [front, meaning, phonetic]
+    .map((value) => String(value || '').trim().toLowerCase())
+    .join('|');
+  return normalized === 'từ vựng|nghĩa|phiên âm'
+    || normalized === 'tu vung|nghia|phien am'
+    || normalized === 'vocabulary|meaning|phonetic';
 }
 
 function flipCard() {

@@ -604,6 +604,7 @@ h3 {
   overflow-wrap: anywhere;
   font-size: clamp(42px, 7vw, 72px);
   line-height: 1.12;
+  white-space: pre-line;
 }
 
 .study-actions {
