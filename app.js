@@ -1,7 +1,7 @@
 const API_BASE_URL =
   localStorage.getItem('questApiBaseUrl') ||
   window.QUEST_NOTES_API_BASE_URL ||
-  'http://localhost:3000/api';
+  'https://quest-notes-be.vercel.app/api';
 const STATE_KEY = 'quest_notes_state_v1';
 const PENDING_KEY = 'quest_notes_pending_sync_v1';
 

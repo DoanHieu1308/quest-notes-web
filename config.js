@@ -1,1 +1,1 @@
-window.QUEST_NOTES_API_BASE_URL = 'http://localhost:3000/api';
+window.QUEST_NOTES_API_BASE_URL = 'https://quest-notes-be.vercel.app/api';

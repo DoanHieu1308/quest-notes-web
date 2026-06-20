@@ -4,7 +4,8 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dist = path.join(root, 'dist');
-const apiBaseUrl = process.env.QUEST_API_BASE_URL || 'http://localhost:3000/api';
+const apiBaseUrl =
+  process.env.QUEST_API_BASE_URL || 'https://quest-notes-be.vercel.app/api';
 
 fs.rmSync(dist, { recursive: true, force: true });
 fs.mkdirSync(dist, { recursive: true });
