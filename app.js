@@ -77,11 +77,13 @@ function bindEvents() {
     event.preventDefault();
     runActionWithLoading(event.submitter, async () => {
       const front = $('cardFront').value.trim();
-      const back = $('cardBack').value.trim();
-      if (!front || !back) return;
-      await addCards([{ front, back }]);
+      const meaning = $('cardBack').value.trim();
+      const phonetic = $('cardPhonetic').value.trim();
+      if (!front || !meaning) return;
+      await addCards([{ front, meaning, phonetic }]);
       $('cardFront').value = '';
       $('cardBack').value = '';
+      $('cardPhonetic').value = '';
     });
   });
 
@@ -90,7 +92,7 @@ function bindEvents() {
     runActionWithLoading(event.submitter, async () => {
       const cards = parseRawCards($('bulkCards').value);
       if (!cards.length) {
-        showToast('Đúng mẫu: từ vựng : nghĩa, mỗi dòng một thẻ.');
+        showToast('Đúng mẫu: từ vựng : nghĩa : phiên âm, mỗi dòng một thẻ.');
         return;
       }
       await addCards(cards);
@@ -453,10 +455,17 @@ function editFlashCard(id) {
   if (!card) return;
   const front = window.prompt('Sửa từ vựng', card.front);
   if (!front?.trim()) return;
-  const back = window.prompt('Sửa nghĩa', card.back);
-  if (!back?.trim()) return;
+  const backParts = parseFlashcardBack(card.back);
+  const meaning = window.prompt('Sửa nghĩa', card.meaning || backParts.meaning);
+  if (!meaning?.trim()) return;
+  const phonetic = window.prompt(
+    'Sửa phiên âm',
+    card.phonetic || backParts.phonetic,
+  );
   card.front = front.trim();
-  card.back = back.trim();
+  card.meaning = meaning.trim();
+  card.phonetic = stripOuterBrackets(phonetic || '');
+  card.back = flashcardBackText(card.meaning, card.phonetic);
   return persistAndSync();
 }
 
@@ -472,7 +481,7 @@ function deleteFlashCard(id) {
 
 function addCards(cards) {
   const normalized = cards
-    .map((card) => ({ front: card.front.trim(), back: card.back.trim() }))
+    .map(normalizeNewFlashcard)
     .filter((card) => card.front && card.back);
   if (!normalized.length) return;
   state.flashCards.push(
@@ -481,6 +490,8 @@ function addCards(cards) {
       deckId: selectedDeckId,
       front: card.front,
       back: card.back,
+      meaning: card.meaning,
+      phonetic: card.phonetic,
       mastered: false,
     })),
   );
@@ -507,10 +518,15 @@ function parseRawCards(rawText) {
     .filter(Boolean)
     .map((line) => {
       const separator = line.includes(':') ? ':' : line.includes('\t') ? '\t' : ',';
-      const [front, ...rest] = line.split(separator);
-      return { front: front || '', back: rest.join(separator) || '' };
+      const [front, meaning = '', ...rest] = line.split(separator);
+      return {
+        front: front || '',
+        meaning,
+        phonetic: rest.join(separator) || '',
+      };
     })
-    .filter((card) => card.front.trim() && card.back.trim());
+    .map(normalizeNewFlashcard)
+    .filter((card) => card.front && card.back);
 }
 
 async function importExcelCards(event) {
@@ -540,7 +556,7 @@ async function importExcelCards(event) {
         if (isFlashcardHeaderRow(front, meaning, phonetic)) return;
         const back = flashcardBackText(meaning, phonetic);
         if (back) {
-          cards.push({ front, back });
+          cards.push({ front, meaning, phonetic });
         } else if (front.includes(':')) {
           cards.push(...parseRawCards(front));
         }
@@ -556,11 +572,34 @@ async function importExcelCards(event) {
   }
 }
 
+function normalizeNewFlashcard(card = {}) {
+  const front = String(card.front || '').trim();
+  const parsedBack = parseFlashcardBack(card.back);
+  const meaning = String(card.meaning || parsedBack.meaning || '').trim();
+  const phonetic = stripOuterBrackets(card.phonetic || parsedBack.phonetic || '');
+  const back = flashcardBackText(meaning, phonetic);
+  return { front, back, meaning, phonetic };
+}
+
 function flashcardBackText(meaning, phonetic) {
   const parts = [];
   if (meaning) parts.push(meaning);
   if (phonetic) parts.push(`[${stripOuterBrackets(phonetic)}]`);
   return parts.join('\n');
+}
+
+function parseFlashcardBack(back) {
+  const lines = String(back || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (!lines.length) return { meaning: '', phonetic: '' };
+  const last = lines.at(-1);
+  const hasPhonetic = last.startsWith('[') && last.endsWith(']') && last.length > 1;
+  return {
+    meaning: hasPhonetic ? lines.slice(0, -1).join('\n') : lines.join('\n'),
+    phonetic: hasPhonetic ? stripOuterBrackets(last) : '',
+  };
 }
 
 function stripOuterBrackets(value) {
@@ -755,11 +794,17 @@ function normalizeDeck(deck = {}) {
 }
 
 function normalizeCard(card = {}) {
+  const parsedBack = parseFlashcardBack(card.back);
+  const meaning = String(card.meaning || parsedBack.meaning || '');
+  const phonetic = stripOuterBrackets(card.phonetic || parsedBack.phonetic || '');
+  const back = String(card.back || flashcardBackText(meaning, phonetic));
   return {
     id: String(card.id || newId()),
     deckId: String(card.deckId || 'default-flashcard-deck'),
     front: String(card.front || ''),
-    back: String(card.back || ''),
+    back,
+    meaning,
+    phonetic,
     mastered: Boolean(card.mastered),
   };
 }
