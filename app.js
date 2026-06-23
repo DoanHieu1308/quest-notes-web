@@ -80,7 +80,11 @@ function bindEvents() {
       const meaning = $('cardBack').value.trim();
       const phonetic = $('cardPhonetic').value.trim();
       if (!front || !meaning) return;
-      await addCards([{ front, meaning, phonetic }]);
+      if (hasFlashcardFront(selectedDeckId, front)) {
+        showToast(`Từ "${front}" đã có trong bộ này.`);
+        return;
+      }
+      await addCards([{ front, meaning, phonetic }], { single: true });
       $('cardFront').value = '';
       $('cardBack').value = '';
       $('cardPhonetic').value = '';
@@ -479,13 +483,27 @@ function deleteFlashCard(id) {
   return persistAndSync();
 }
 
-function addCards(cards) {
+function addCards(cards, { single = false } = {}) {
   const normalized = cards
     .map(normalizeNewFlashcard)
     .filter((card) => card.front && card.back);
-  if (!normalized.length) return;
+  const knownFronts = new Set(
+    cardsForDeck(selectedDeckId).map((card) => frontKey(card.front)),
+  );
+  const newCards = [];
+  normalized.forEach((card) => {
+    const key = frontKey(card.front);
+    if (knownFronts.has(key)) return;
+    knownFronts.add(key);
+    newCards.push(card);
+  });
+
+  if (!newCards.length) {
+    showToast(single ? 'Từ vựng đã có trong bộ này.' : 'Không có từ mới để thêm.');
+    return false;
+  }
   state.flashCards.push(
-    ...normalized.map((card) => ({
+    ...newCards.map((card) => ({
       id: newId(),
       deckId: selectedDeckId,
       front: card.front,
@@ -497,11 +515,15 @@ function addCards(cards) {
   );
   const deck = state.flashDecks.find((item) => item.id === selectedDeckId);
   if (deck) deck.rewardClaimed = false;
-  showToast(`Đã nhập ${normalized.length} flashcard.`);
+  const skipped = normalized.length - newCards.length;
+  showToast(
+    skipped > 0
+      ? `Đã nhập ${newCards.length} flashcard, bỏ qua ${skipped} từ đã có.`
+      : `Đã nhập ${newCards.length} flashcard.`,
+  );
   setImportMenuOpen(false);
-  return persistAndSync();
+  return persistAndSync().then(() => true);
 }
-
 function toggleImportMenu() {
   setImportMenuOpen($('importMenu').classList.contains('hidden'));
 }
@@ -661,6 +683,15 @@ function claimDeckReward() {
 
 function cardsForDeck(deckId) {
   return state.flashCards.filter((card) => card.deckId === deckId);
+}
+
+function hasFlashcardFront(deckId, front) {
+  const key = frontKey(front);
+  return cardsForDeck(deckId).some((card) => frontKey(card.front) === key);
+}
+
+function frontKey(front) {
+  return String(front || '').trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
 function rewardForCards(total) {
