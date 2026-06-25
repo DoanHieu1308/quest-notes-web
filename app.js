@@ -69,6 +69,7 @@ function bindEvents() {
       selectedDeckId = deck.id;
       currentCardIndex = 0;
       showingBack = false;
+      showingMeaning = false;
       $('deckName').value = '';
       await persistAndSync();
     });
@@ -261,6 +262,7 @@ function renderFlashcards() {
       selectedDeckId = deck.id;
       currentCardIndex = 0;
       showingBack = false;
+      showingMeaning = false;
       renderFlashcards();
     });
     row.querySelector('.edit').addEventListener('click', () => editDeck(deck.id));
@@ -324,6 +326,7 @@ function renderFlashcards() {
     row.querySelector('.mini-open').addEventListener('click', () => {
       currentCardIndex = index;
       showingBack = false;
+      showingMeaning = false;
       renderFlashcards();
     });
     row.querySelector('.edit-card').addEventListener('click', (event) => {
@@ -466,6 +469,7 @@ function deleteDeck(id) {
   ensureSelectedDeck();
   currentCardIndex = 0;
   showingBack = false;
+  showingMeaning = false;
   return persistAndSync();
 }
 
@@ -494,6 +498,7 @@ function deleteFlashCard(id) {
   const cards = cardsForDeck(selectedDeckId);
   currentCardIndex = Math.min(currentCardIndex, Math.max(0, cards.length - 1));
   showingBack = false;
+  showingMeaning = false;
   return persistAndSync();
 }
 
@@ -687,6 +692,7 @@ function isFlashcardHeaderRow(frontText, frontPhonetic, backText, backPhonetic, 
 
 function flipCard() {
   if (!cardsForDeck(selectedDeckId).length) return;
+  showingMeaning = false;
   showingBack = !showingBack;
   renderFlashcards();
 }
@@ -695,6 +701,7 @@ function moveCard(direction) {
   const cards = cardsForDeck(selectedDeckId);
   currentCardIndex = Math.min(Math.max(currentCardIndex + direction, 0), Math.max(0, cards.length - 1));
   showingBack = false;
+  showingMeaning = false;
   renderFlashcards();
 }
 
@@ -711,6 +718,7 @@ function deleteCurrentCard() {
   state.flashCards = state.flashCards.filter((item) => item.id !== card.id);
   currentCardIndex = Math.max(0, currentCardIndex - 1);
   showingBack = false;
+  showingMeaning = false;
   return persistAndSync();
 }
 
