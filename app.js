@@ -123,6 +123,11 @@ function bindEvents() {
   });
   $('prevCard').addEventListener('click', () => moveCard(-1));
   $('nextCard').addEventListener('click', () => moveCard(1));
+  $('toggleMeaning').addEventListener('click', (event) => {
+    event.stopPropagation();
+    showingMeaning = !showingMeaning;
+    renderFlashcards();
+  });
   $('toggleMastered').addEventListener('click', (event) => {
     runActionWithLoading(event.currentTarget, toggleCurrentCardMastered);
   });
@@ -293,9 +298,16 @@ function renderFlashcards() {
   $('claimDeckReward').disabled = !canClaim;
   $('claimDeckReward').textContent = deck?.rewardClaimed ? 'Đã nhận' : 'Nhận xu';
 
+  const normalizedCard = card ? normalizeNewFlashcard(card) : null;
   $('flashCard').classList.toggle('flipped', showingBack);
-  $('flashFront').textContent = card?.front || 'Chưa có thẻ';
-  $('flashBack').textContent = card?.back || 'Hãy thêm từ vựng';
+  renderFlashFace($('flashFront'), normalizedCard, false);
+  renderFlashFace($('flashBack'), normalizedCard, true);
+  const canShowMeaning = Boolean(showingBack && normalizedCard?.meaning);
+  $('toggleMeaning').classList.toggle('hidden', !canShowMeaning);
+  $('toggleMeaning').textContent = showingMeaning ? 'Ẩn nghĩa' : 'Bật nghĩa';
+  $('flashMeaning').classList.toggle('hidden', !canShowMeaning || !showingMeaning);
+  $('flashMeaning').textContent = canShowMeaning && showingMeaning ? normalizedCard.meaning : '';
+
   $('cardCounter').textContent = cards.length ? `${currentCardIndex + 1}/${cards.length}` : '0/0';
   $('prevCard').disabled = currentCardIndex <= 0;
   $('nextCard').disabled = currentCardIndex >= cards.length - 1;
@@ -627,12 +639,50 @@ function normalizeNewFlashcard(card = {}) {
   const legacy = parseLegacyCard(card);
   const frontText = String(card.frontText || card.front || legacy.frontText || '').trim();
   const frontPhonetic = stripOuterBrackets(card.frontPhonetic || legacy.frontPhonetic || '');
-  const backText = String(card.backText || legacy.backText || '').trim();
-  const backPhonetic = stripOuterBrackets(card.backPhonetic || legacy.backPhonetic || '');
-  const meaning = String(card.meaning || legacy.meaning || '').trim();
+  const backFields = normalizeBackFields(
+    card.backText || legacy.backText || '',
+    card.backPhonetic || legacy.backPhonetic || '',
+    card.meaning || legacy.meaning || '',
+  );
+  const backText = backFields.backText;
+  const backPhonetic = backFields.backPhonetic;
+  const meaning = backFields.meaning;
   const front = flashcardSideText(frontText, frontPhonetic);
   const back = flashcardBackText(backText, backPhonetic, meaning);
   return { front, back, frontText, frontPhonetic, backText, backPhonetic, meaning };
+}
+
+function normalizeBackFields(rawBackText, rawBackPhonetic, rawMeaning) {
+  const parsed = parseBackTextLines(rawBackText);
+  const hasBackStructure = Boolean(parsed.phonetic || parsed.meaning);
+  return {
+    backText: hasBackStructure ? parsed.text : String(rawBackText || '').trim(),
+    backPhonetic: stripOuterBrackets(rawBackPhonetic || (hasBackStructure ? parsed.phonetic : '')),
+    meaning: String(rawMeaning || parsed.meaning || '').trim(),
+  };
+}
+
+function parseBackTextLines(value) {
+  const lines = String(value || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (!lines.length) return { text: '', phonetic: '', meaning: '' };
+  const phoneticIndex = lines.findIndex(
+    (line) => line.startsWith('[') && line.endsWith(']') && line.length > 1,
+  );
+  if (phoneticIndex >= 0) {
+    return {
+      text: lines.slice(0, phoneticIndex).join('\n'),
+      phonetic: stripOuterBrackets(lines[phoneticIndex]),
+      meaning: lines.slice(phoneticIndex + 1).join('\n'),
+    };
+  }
+  return {
+    text: lines[0],
+    phonetic: '',
+    meaning: lines.slice(1).join('\n'),
+  };
 }
 
 function flashcardSideText(text, phonetic) {
