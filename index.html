@@ -121,6 +121,8 @@
                   <div class="flash-face flash-back">
                     <span class="face-label">Mặt sau</span>
                     <strong id="flashBack">Hãy thêm từ vựng</strong>
+                    <button id="toggleMeaning" class="ghost hidden" type="button">Bật nghĩa</button>
+                    <div id="flashMeaning" class="flash-meaning hidden"></div>
                   </div>
                 </div>
               </div>
@@ -143,14 +145,16 @@
 
               <div id="importMenu" class="import-menu hidden">
                 <form id="bulkCardForm" class="control-panel bulk-form">
-                  <textarea id="bulkCards" placeholder="hello : xin chào : he-lo&#10;apple : quả táo : ap-pul"></textarea>
+                  <textarea id="bulkCards" placeholder="hello : he-lo : 你好 : ni hao : xin chào"></textarea>
                   <button type="submit">Thêm nhiều từ</button>
                 </form>
                 <div class="import-side">
                   <form id="cardForm" class="control-panel card-form">
-                    <input id="cardFront" placeholder="Từ vựng" autocomplete="off" />
-                    <input id="cardBack" placeholder="Nghĩa" autocomplete="off" />
-                    <input id="cardPhonetic" placeholder="Phiên âm" autocomplete="off" />
+                    <input id="cardFront" placeholder="Mặt trước" autocomplete="off" />
+                    <input id="cardFrontPhonetic" placeholder="Phiên âm mặt trước" autocomplete="off" />
+                    <input id="cardBack" placeholder="Mặt sau" autocomplete="off" />
+                    <input id="cardBackPhonetic" placeholder="Phiên âm mặt sau" autocomplete="off" />
+                    <input id="cardMeaning" placeholder="Nghĩa tiếng Việt" autocomplete="off" />
                     <button type="submit">Thêm thẻ</button>
                   </form>
                   <label class="excel-upload">

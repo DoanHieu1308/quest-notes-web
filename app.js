@@ -10,6 +10,7 @@ let selectedDate = todayKey();
 let selectedDeckId = state.flashDecks[0]?.id || 'default-flashcard-deck';
 let currentCardIndex = 0;
 let showingBack = false;
+let showingMeaning = false;
 let editingShopId = null;
 let activeActionButton = null;
 
@@ -77,17 +78,21 @@ function bindEvents() {
     event.preventDefault();
     runActionWithLoading(event.submitter, async () => {
       const front = $('cardFront').value.trim();
-      const meaning = $('cardBack').value.trim();
-      const phonetic = $('cardPhonetic').value.trim();
-      if (!front || !meaning) return;
+      const frontPhonetic = $('cardFrontPhonetic').value.trim();
+      const back = $('cardBack').value.trim();
+      const backPhonetic = $('cardBackPhonetic').value.trim();
+      const meaning = $('cardMeaning').value.trim();
+      if (!front || !back) return;
       if (hasFlashcardFront(selectedDeckId, front)) {
         showToast(`Từ "${front}" đã có trong bộ này.`);
         return;
       }
-      await addCards([{ front, meaning, phonetic }], { single: true });
+      await addCards([{ frontText: front, frontPhonetic, backText: back, backPhonetic, meaning }], { single: true });
       $('cardFront').value = '';
+      $('cardFrontPhonetic').value = '';
       $('cardBack').value = '';
-      $('cardPhonetic').value = '';
+      $('cardBackPhonetic').value = '';
+      $('cardMeaning').value = '';
     });
   });
 
@@ -221,6 +226,16 @@ function renderShop() {
     });
     list.appendChild(row);
   });
+}
+
+function renderFlashFace(element, card, backSide) {
+  if (!card) {
+    element.textContent = backSide ? 'Hãy thêm từ vựng' : 'Chưa có thẻ';
+    return;
+  }
+  const text = backSide ? card.backText : card.frontText;
+  const phonetic = backSide ? card.backPhonetic : card.frontPhonetic;
+  element.textContent = phonetic ? `${text}\n[${stripOuterBrackets(phonetic)}]` : text;
 }
 
 function renderFlashcards() {
@@ -457,19 +472,18 @@ function deleteDeck(id) {
 function editFlashCard(id) {
   const card = state.flashCards.find((item) => item.id === id);
   if (!card) return;
-  const front = window.prompt('Sửa từ vựng', card.front);
-  if (!front?.trim()) return;
-  const backParts = parseFlashcardBack(card.back);
-  const meaning = window.prompt('Sửa nghĩa', card.meaning || backParts.meaning);
-  if (!meaning?.trim()) return;
-  const phonetic = window.prompt(
-    'Sửa phiên âm',
-    card.phonetic || backParts.phonetic,
+  const current = normalizeNewFlashcard(card);
+  const frontText = window.prompt('Sửa mặt trước', current.frontText);
+  if (!frontText?.trim()) return;
+  const frontPhonetic = window.prompt('Sửa phiên âm mặt trước', current.frontPhonetic);
+  const backText = window.prompt('Sửa mặt sau', current.backText);
+  if (!backText?.trim()) return;
+  const backPhonetic = window.prompt('Sửa phiên âm mặt sau', current.backPhonetic);
+  const meaning = window.prompt('Sửa nghĩa tiếng Việt', current.meaning);
+  Object.assign(
+    card,
+    normalizeNewFlashcard({ frontText, frontPhonetic, backText, backPhonetic, meaning }),
   );
-  card.front = front.trim();
-  card.meaning = meaning.trim();
-  card.phonetic = stripOuterBrackets(phonetic || '');
-  card.back = flashcardBackText(card.meaning, card.phonetic);
   return persistAndSync();
 }
 
@@ -488,11 +502,11 @@ function addCards(cards, { single = false } = {}) {
     .map(normalizeNewFlashcard)
     .filter((card) => card.front && card.back);
   const knownFronts = new Set(
-    cardsForDeck(selectedDeckId).map((card) => frontKey(card.front)),
+    cardsForDeck(selectedDeckId).map((card) => frontKey(card.frontText || card.front)),
   );
   const newCards = [];
   normalized.forEach((card) => {
-    const key = frontKey(card.front);
+    const key = frontKey(card.frontText || card.front);
     if (knownFronts.has(key)) return;
     knownFronts.add(key);
     newCards.push(card);
@@ -508,8 +522,11 @@ function addCards(cards, { single = false } = {}) {
       deckId: selectedDeckId,
       front: card.front,
       back: card.back,
+      frontText: card.frontText,
+      frontPhonetic: card.frontPhonetic,
+      backText: card.backText,
+      backPhonetic: card.backPhonetic,
       meaning: card.meaning,
-      phonetic: card.phonetic,
       mastered: false,
     })),
   );
@@ -540,15 +557,17 @@ function parseRawCards(rawText) {
     .filter(Boolean)
     .map((line) => {
       const separator = line.includes(':') ? ':' : line.includes('\t') ? '\t' : ',';
-      const [front, meaning = '', ...rest] = line.split(separator);
+      const [frontText = '', frontPhonetic = '', backText = '', backPhonetic = '', ...rest] = line.split(separator);
       return {
-        front: front || '',
-        meaning,
-        phonetic: rest.join(separator) || '',
+        frontText,
+        frontPhonetic,
+        backText,
+        backPhonetic,
+        meaning: rest.join(separator) || '',
       };
     })
     .map(normalizeNewFlashcard)
-    .filter((card) => card.front && card.back);
+    .filter((card) => card.frontText && card.backText);
 }
 
 async function importExcelCards(event) {
@@ -571,21 +590,22 @@ async function importExcelCards(event) {
         defval: '',
       });
       rows.forEach((row) => {
-        const front = String(row[0] || '').trim();
-        const meaning = String(row[1] || '').trim();
-        const phonetic = String(row[2] || '').trim();
-        if (!front) return;
-        if (isFlashcardHeaderRow(front, meaning, phonetic)) return;
-        const back = flashcardBackText(meaning, phonetic);
-        if (back) {
-          cards.push({ front, meaning, phonetic });
-        } else if (front.includes(':')) {
-          cards.push(...parseRawCards(front));
+        const frontText = String(row[0] || '').trim();
+        const frontPhonetic = String(row[1] || '').trim();
+        const backText = String(row[2] || '').trim();
+        const backPhonetic = String(row[3] || '').trim();
+        const meaning = String(row[4] || '').trim();
+        if (!frontText) return;
+        if (isFlashcardHeaderRow(frontText, frontPhonetic, backText, backPhonetic, meaning)) return;
+        if (backText) {
+          cards.push({ frontText, frontPhonetic, backText, backPhonetic, meaning });
+        } else if (frontText.includes(':')) {
+          cards.push(...parseRawCards(frontText));
         }
       });
     });
     if (!cards.length) {
-      showToast('Không tìm thấy cặp từ vựng/nghĩa trong Excel.');
+      showToast('Không tìm thấy cặp từ vựng trong Excel.');
       return;
     }
     addCards(cards);
@@ -595,31 +615,57 @@ async function importExcelCards(event) {
 }
 
 function normalizeNewFlashcard(card = {}) {
-  const front = String(card.front || '').trim();
-  const parsedBack = parseFlashcardBack(card.back);
-  const meaning = String(card.meaning || parsedBack.meaning || '').trim();
-  const phonetic = stripOuterBrackets(card.phonetic || parsedBack.phonetic || '');
-  const back = flashcardBackText(meaning, phonetic);
-  return { front, back, meaning, phonetic };
+  const legacy = parseLegacyCard(card);
+  const frontText = String(card.frontText || card.front || legacy.frontText || '').trim();
+  const frontPhonetic = stripOuterBrackets(card.frontPhonetic || legacy.frontPhonetic || '');
+  const backText = String(card.backText || legacy.backText || '').trim();
+  const backPhonetic = stripOuterBrackets(card.backPhonetic || legacy.backPhonetic || '');
+  const meaning = String(card.meaning || legacy.meaning || '').trim();
+  const front = flashcardSideText(frontText, frontPhonetic);
+  const back = flashcardBackText(backText, backPhonetic, meaning);
+  return { front, back, frontText, frontPhonetic, backText, backPhonetic, meaning };
 }
 
-function flashcardBackText(meaning, phonetic) {
+function flashcardSideText(text, phonetic) {
   const parts = [];
-  if (meaning) parts.push(meaning);
+  if (text) parts.push(text);
   if (phonetic) parts.push(`[${stripOuterBrackets(phonetic)}]`);
   return parts.join('\n');
 }
 
-function parseFlashcardBack(back) {
-  const lines = String(back || '')
+function flashcardBackText(text, phonetic, meaning) {
+  return [flashcardSideText(text, phonetic), meaning]
+    .filter((part) => String(part || '').trim())
+    .join('\n');
+}
+
+function parseLegacyCard(card = {}) {
+  const frontSide = parseSide(card.front || '');
+  const backLines = String(card.back || '')
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
-  if (!lines.length) return { meaning: '', phonetic: '' };
+  const backSide = parseSide(backLines.slice(0, 2).join('\n'));
+  const meaning = card.meaning || (backLines.length > 2 ? backLines.slice(2).join('\n') : '');
+  return {
+    frontText: frontSide.text,
+    frontPhonetic: frontSide.phonetic,
+    backText: card.backText || backSide.text || card.meaning || '',
+    backPhonetic: card.backPhonetic || backSide.phonetic || card.phonetic || '',
+    meaning,
+  };
+}
+
+function parseSide(value) {
+  const lines = String(value || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (!lines.length) return { text: '', phonetic: '' };
   const last = lines.at(-1);
   const hasPhonetic = last.startsWith('[') && last.endsWith(']') && last.length > 1;
   return {
-    meaning: hasPhonetic ? lines.slice(0, -1).join('\n') : lines.join('\n'),
+    text: hasPhonetic ? lines.slice(0, -1).join('\n') : lines.join('\n'),
     phonetic: hasPhonetic ? stripOuterBrackets(last) : '',
   };
 }
@@ -631,13 +677,12 @@ function stripOuterBrackets(value) {
     : trimmed;
 }
 
-function isFlashcardHeaderRow(front, meaning, phonetic) {
-  const normalized = [front, meaning, phonetic]
+function isFlashcardHeaderRow(frontText, frontPhonetic, backText, backPhonetic, meaning) {
+  const normalized = [frontText, frontPhonetic, backText, backPhonetic, meaning]
     .map((value) => String(value || '').trim().toLowerCase())
     .join('|');
-  return normalized === 'từ vựng|nghĩa|phiên âm'
-    || normalized === 'tu vung|nghia|phien am'
-    || normalized === 'vocabulary|meaning|phonetic';
+  return normalized === 'từ vựng mặt trước|phiên âm mặt trước|từ vựng mặt sau|phiên âm mặt sau|nghĩa'
+    || normalized === 'front|front phonetic|back|back phonetic|meaning';
 }
 
 function flipCard() {
@@ -687,7 +732,7 @@ function cardsForDeck(deckId) {
 
 function hasFlashcardFront(deckId, front) {
   const key = frontKey(front);
-  return cardsForDeck(deckId).some((card) => frontKey(card.front) === key);
+  return cardsForDeck(deckId).some((card) => frontKey(card.frontText || card.front) === key);
 }
 
 function frontKey(front) {
@@ -825,17 +870,17 @@ function normalizeDeck(deck = {}) {
 }
 
 function normalizeCard(card = {}) {
-  const parsedBack = parseFlashcardBack(card.back);
-  const meaning = String(card.meaning || parsedBack.meaning || '');
-  const phonetic = stripOuterBrackets(card.phonetic || parsedBack.phonetic || '');
-  const back = String(card.back || flashcardBackText(meaning, phonetic));
+  const normalized = normalizeNewFlashcard(card);
   return {
     id: String(card.id || newId()),
     deckId: String(card.deckId || 'default-flashcard-deck'),
-    front: String(card.front || ''),
-    back,
-    meaning,
-    phonetic,
+    front: normalized.front,
+    back: normalized.back,
+    frontText: normalized.frontText,
+    frontPhonetic: normalized.frontPhonetic,
+    backText: normalized.backText,
+    backPhonetic: normalized.backPhonetic,
+    meaning: normalized.meaning,
     mastered: Boolean(card.mastered),
   };
 }
