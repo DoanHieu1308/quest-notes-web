@@ -83,9 +83,11 @@ function bindEvents() {
       const back = $('cardBack').value.trim();
       const backPhonetic = $('cardBackPhonetic').value.trim();
       const meaning = $('cardMeaning').value.trim();
-      if (!front || !back) return;
-      if (hasFlashcardFront(selectedDeckId, front)) {
-        showToast(`Từ "${front}" đã có trong bộ này.`);
+      const hasFront = Boolean(front || frontPhonetic);
+      const hasBack = Boolean(back || backPhonetic || meaning);
+      if (!hasFront || !hasBack) return;
+      if (hasFlashcardFront(selectedDeckId, front, frontPhonetic)) {
+        showToast(`Từ "${front || frontPhonetic}" đã có trong bộ này.`);
         return;
       }
       await addCards([{ frontText: front, frontPhonetic, backText: back, backPhonetic, meaning }], { single: true });
@@ -505,13 +507,15 @@ function deleteFlashCard(id) {
 function addCards(cards, { single = false } = {}) {
   const normalized = cards
     .map(normalizeNewFlashcard)
-    .filter((card) => card.front && card.back);
+    .filter(hasFlashcardContent);
   const knownFronts = new Set(
-    cardsForDeck(selectedDeckId).map((card) => frontKey(card.frontText || card.front)),
+    cardsForDeck(selectedDeckId).map((card) =>
+      frontKey(card.frontText || card.front, card.frontPhonetic),
+    ),
   );
   const newCards = [];
   normalized.forEach((card) => {
-    const key = frontKey(card.frontText || card.front);
+    const key = frontKey(card.frontText || card.front, card.frontPhonetic);
     if (knownFronts.has(key)) return;
     knownFronts.add(key);
     newCards.push(card);
@@ -572,7 +576,7 @@ function parseRawCards(rawText) {
       };
     })
     .map(normalizeNewFlashcard)
-    .filter((card) => card.frontText && card.backText);
+    .filter(hasFlashcardContent);
 }
 
 async function importExcelCards(event) {
@@ -738,13 +742,22 @@ function cardsForDeck(deckId) {
   return state.flashCards.filter((card) => card.deckId === deckId);
 }
 
-function hasFlashcardFront(deckId, front) {
-  const key = frontKey(front);
-  return cardsForDeck(deckId).some((card) => frontKey(card.frontText || card.front) === key);
+function hasFlashcardFront(deckId, front, phonetic = '') {
+  const key = frontKey(front, phonetic);
+  return cardsForDeck(deckId).some(
+    (card) => frontKey(card.frontText || card.front, card.frontPhonetic) === key,
+  );
 }
 
-function frontKey(front) {
-  return String(front || '').trim().replace(/\s+/g, ' ').toLowerCase();
+function hasFlashcardContent(card) {
+  const hasFront = Boolean(card.frontText || card.frontPhonetic);
+  const hasBack = Boolean(card.backText || card.backPhonetic || card.meaning);
+  return hasFront && hasBack;
+}
+
+function frontKey(front, phonetic = '') {
+  const value = String(front || '').trim() || String(phonetic || '').trim();
+  return value.replace(/\s+/g, ' ').toLowerCase();
 }
 
 function rewardForCards(total) {
