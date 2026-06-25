@@ -655,13 +655,16 @@ function parseLegacyCard(card = {}) {
     .map((line) => line.trim())
     .filter(Boolean);
   const backSide = parseSide(backLines.slice(0, 2).join('\n'));
+  const hasStructuredBack = Boolean(card.backText || card.backPhonetic);
   const meaning = card.meaning || (backLines.length > 2 ? backLines.slice(2).join('\n') : '');
   return {
     frontText: frontSide.text,
     frontPhonetic: frontSide.phonetic,
-    backText: card.backText || backSide.text || card.meaning || '',
-    backPhonetic: card.backPhonetic || backSide.phonetic || card.phonetic || '',
-    meaning,
+    backText: hasStructuredBack ? card.backText || backSide.text || '' : '',
+    backPhonetic: hasStructuredBack
+      ? card.backPhonetic || backSide.phonetic || card.phonetic || ''
+      : '',
+    meaning: meaning || (!hasStructuredBack ? backSide.text : ''),
   };
 }
 
