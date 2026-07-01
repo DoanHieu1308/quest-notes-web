@@ -616,10 +616,11 @@ h3 {
 }
 
 .flash-back .flash-main {
-  font-family: "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans SC", "PingFang SC", "Hiragino Sans GB", sans-serif;
-  font-weight: 650;
+  font-family: "KaiTi", "STKaiti", "Kaiti SC", "DFKai-SB", "Noto Serif SC", "Songti SC", serif;
+  font-size: clamp(40px, 6.4vw, 66px);
+  font-weight: 400;
   letter-spacing: 0;
-  line-height: 1.18;
+  line-height: 1.2;
   text-rendering: geometricPrecision;
   -webkit-font-smoothing: antialiased;
 }
