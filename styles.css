@@ -599,12 +599,55 @@ h3 {
   color: var(--mint);
 }
 
-.flash-face strong {
+.flash-content {
+  display: grid;
+  justify-items: center;
+  max-width: 100%;
+  gap: 10px;
+}
+
+.flash-main {
   max-width: 100%;
   overflow-wrap: anywhere;
   font-size: clamp(42px, 7vw, 72px);
+  font-weight: 900;
   line-height: 1.12;
   white-space: pre-line;
+}
+
+.flash-phonetic {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: clamp(18px, 2.6vw, 28px);
+  font-weight: 850;
+  line-height: 1.25;
+}
+
+.flash-back .flash-phonetic {
+  color: var(--mint);
+}
+
+.speak-button {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--accent-dark);
+  font-size: 20px;
+}
+
+.flash-back .speak-button {
+  border-color: rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.14);
+  color: white;
 }
 
 .study-actions {

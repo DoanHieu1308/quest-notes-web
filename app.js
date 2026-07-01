@@ -237,13 +237,55 @@ function renderShop() {
 }
 
 function renderFlashFace(element, card, backSide) {
+  element.innerHTML = '';
   if (!card) {
-    element.textContent = backSide ? 'Hãy thêm từ vựng' : 'Chưa có thẻ';
+    const empty = document.createElement('span');
+    empty.className = 'flash-main';
+    empty.textContent = backSide ? 'Hãy thêm từ vựng' : 'Chưa có thẻ';
+    element.appendChild(empty);
     return;
   }
   const text = backSide ? card.backText : card.frontText;
   const phonetic = backSide ? card.backPhonetic : card.frontPhonetic;
-  element.textContent = phonetic ? `${text}\n[${stripOuterBrackets(phonetic)}]` : text;
+  const spokenText = String(text || '').trim();
+  const lang = backSide ? 'zh-CN' : 'en-US';
+  const main = document.createElement('span');
+  main.className = 'flash-main';
+  main.textContent = text || (phonetic ? `[${stripOuterBrackets(phonetic)}]` : '');
+  element.appendChild(main);
+
+  if (phonetic && text) {
+    const phoneticLine = document.createElement('span');
+    phoneticLine.className = 'flash-phonetic';
+    phoneticLine.textContent = `[${stripOuterBrackets(phonetic)}]`;
+    element.appendChild(phoneticLine);
+  }
+
+  if (spokenText) {
+    const speakButton = document.createElement('button');
+    speakButton.className = 'speak-button';
+    speakButton.type = 'button';
+    speakButton.setAttribute('aria-label', backSide ? 'Nghe tiếng Trung' : 'Nghe tiếng Anh');
+    speakButton.title = backSide ? 'Nghe tiếng Trung' : 'Nghe tiếng Anh';
+    speakButton.textContent = '🔊';
+    speakButton.addEventListener('click', (event) => {
+      event.stopPropagation();
+      speakFlashcardText(spokenText, lang);
+    });
+    element.appendChild(speakButton);
+  }
+}
+
+function speakFlashcardText(text, lang) {
+  if (!('speechSynthesis' in window) || !('SpeechSynthesisUtterance' in window)) {
+    showToast('Trình duyệt này chưa hỗ trợ đọc phát âm.');
+    return;
+  }
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = lang;
+  utterance.rate = lang === 'zh-CN' ? 0.9 : 0.95;
+  window.speechSynthesis.speak(utterance);
 }
 
 function renderFlashcards() {
