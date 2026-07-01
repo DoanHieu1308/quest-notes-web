@@ -13,6 +13,7 @@ let showingBack = false;
 let showingMeaning = false;
 let editingShopId = null;
 let activeActionButton = null;
+let translatedCardDraft = null;
 
 const $ = (id) => document.getElementById(id);
 const weekdays = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
@@ -79,35 +80,50 @@ function bindEvents() {
     event.preventDefault();
     runActionWithLoading(event.submitter, async () => {
       const front = $('cardFront').value.trim();
-      const frontPhonetic = $('cardFrontPhonetic').value.trim();
-      const back = $('cardBack').value.trim();
-      const backPhonetic = $('cardBackPhonetic').value.trim();
-      const meaning = $('cardMeaning').value.trim();
-      const hasFront = Boolean(front || frontPhonetic);
-      const hasBack = Boolean(back || backPhonetic || meaning);
-      if (!hasFront || !hasBack) return;
-      if (hasFlashcardFront(selectedDeckId, front, frontPhonetic)) {
-        showToast(`Từ "${front || frontPhonetic}" đã có trong bộ này.`);
+      if (!front) return;
+      if (hasFlashcardFront(selectedDeckId, front)) {
+        showToast(`Từ "${front}" đã có trong bộ này.`);
         return;
       }
-      await addCards([{ frontText: front, frontPhonetic, backText: back, backPhonetic, meaning }], { single: true });
-      $('cardFront').value = '';
-      $('cardFrontPhonetic').value = '';
-      $('cardBack').value = '';
-      $('cardBackPhonetic').value = '';
-      $('cardMeaning').value = '';
+      const card = translatedCardDraft?.frontText?.toLowerCase() === front.toLowerCase()
+        ? translatedCardDraft
+        : await translateSingleCard(front);
+      if (!card) return;
+      const added = await addCards([card], { single: true });
+      if (added) clearCardForm();
     });
+  });
+
+  $('translateCard').addEventListener('click', (event) => {
+    runActionWithLoading(event.currentTarget, async () => {
+      const front = $('cardFront').value.trim();
+      if (!front) return;
+      if (hasFlashcardFront(selectedDeckId, front)) {
+        showToast(`Từ "${front}" đã có trong bộ này.`);
+        return;
+      }
+      await translateSingleCard(front);
+    });
+  });
+
+  $('cardFront').addEventListener('input', () => {
+    translatedCardDraft = null;
+    $('cardFrontPhonetic').value = '';
+    $('cardBack').value = '';
+    $('cardBackPhonetic').value = '';
+    $('cardMeaning').value = '';
   });
 
   $('bulkCardForm').addEventListener('submit', (event) => {
     event.preventDefault();
     runActionWithLoading(event.submitter, async () => {
-      const cards = parseRawCards($('bulkCards').value);
-      if (!cards.length) {
-        showToast('Đúng mẫu: từ vựng : nghĩa : phiên âm, mỗi dòng một thẻ.');
+      const { cards, words } = parseBulkFlashcards($('bulkCards').value);
+      if (!cards.length && !words.length) {
+        showToast('Nhập mỗi dòng một từ tiếng Anh, hoặc dùng mẫu cũ đủ 5 cột.');
         return;
       }
-      await addCards(cards);
+      const enrichedCards = words.length ? await enrichFlashcardWords(words) : [];
+      await addCards([...cards, ...enrichedCards]);
       $('bulkCards').value = '';
     });
   });
@@ -558,6 +574,62 @@ function deleteFlashCard(id) {
   return persistAndSync();
 }
 
+async function translateSingleCard(frontText) {
+  const [card] = await enrichFlashcardWords([frontText]);
+  if (!card) return null;
+  translatedCardDraft = card;
+  $('cardFront').value = card.frontText;
+  $('cardFrontPhonetic').value = card.frontPhonetic;
+  $('cardBack').value = card.backText;
+  $('cardBackPhonetic').value = card.backPhonetic;
+  $('cardMeaning').value = card.meaning;
+  showToast('Đã dịch, kiểm tra rồi bấm Thêm thẻ.');
+  return card;
+}
+
+async function enrichFlashcardWords(words) {
+  const uniqueWords = uniqueFlashcardWords(words).filter((word) => !hasFlashcardFront(selectedDeckId, word));
+  if (!uniqueWords.length) return [];
+
+  const response = await fetch(`${API_BASE_URL}/flashcards/enrich`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ items: uniqueWords }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.success) {
+    throw new Error(payload.message || 'Không thể dịch từ vựng.');
+  }
+  const cards = Array.isArray(payload.data?.cards) ? payload.data.cards : [];
+  const errors = Array.isArray(payload.data?.errors) ? payload.data.errors : [];
+  if (errors.length) {
+    showToast(`Có ${errors.length} từ chưa dịch được, đã bỏ qua.`);
+  }
+  return cards.map(normalizeNewFlashcard).filter(hasFlashcardContent);
+}
+
+function uniqueFlashcardWords(words) {
+  const seen = new Set();
+  const unique = [];
+  words.forEach((word) => {
+    const text = String(word || '').trim().replace(/\s+/g, ' ');
+    const key = text.toLowerCase();
+    if (!text || seen.has(key)) return;
+    seen.add(key);
+    unique.push(text);
+  });
+  return unique;
+}
+
+function clearCardForm() {
+  translatedCardDraft = null;
+  $('cardFront').value = '';
+  $('cardFrontPhonetic').value = '';
+  $('cardBack').value = '';
+  $('cardBackPhonetic').value = '';
+  $('cardMeaning').value = '';
+}
+
 function addCards(cards, { single = false } = {}) {
   const normalized = cards
     .map(normalizeNewFlashcard)
@@ -613,6 +685,37 @@ function setImportMenuOpen(open) {
   $('toggleImportMenu').setAttribute('aria-expanded', String(open));
 }
 
+function parseBulkFlashcards(rawText) {
+  const cards = [];
+  const words = [];
+  rawText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .forEach((line) => {
+      const separator = line.includes(':') ? ':' : line.includes('\t') ? '\t' : ',';
+      const parts = line.split(separator).map((part) => part.trim());
+      const meaningfulParts = parts.filter(Boolean);
+      if (separator !== ',' || meaningfulParts.length >= 3) {
+        const [frontText = '', frontPhonetic = '', backText = '', backPhonetic = '', ...rest] = parts;
+        cards.push({
+          frontText,
+          frontPhonetic,
+          backText,
+          backPhonetic,
+          meaning: rest.join(separator) || '',
+        });
+        return;
+      }
+      meaningfulParts.forEach((word) => words.push(word));
+    });
+
+  return {
+    cards: cards.map(normalizeNewFlashcard).filter(hasFlashcardContent),
+    words: uniqueFlashcardWords(words),
+  };
+}
+
 function parseRawCards(rawText) {
   return rawText
     .split(/\r?\n/)
@@ -646,6 +749,7 @@ async function importExcelCards(event) {
     const buffer = await file.arrayBuffer();
     const workbook = window.XLSX.read(buffer, { type: 'array' });
     const cards = [];
+    const words = [];
     workbook.SheetNames.forEach((sheetName) => {
       const rows = window.XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {
         header: 1,
@@ -664,16 +768,19 @@ async function importExcelCards(event) {
           cards.push({ frontText, frontPhonetic, backText, backPhonetic, meaning });
         } else if (frontText.includes(':')) {
           cards.push(...parseRawCards(frontText));
+        } else {
+          words.push(frontText);
         }
       });
     });
-    if (!cards.length) {
+    if (!cards.length && !words.length) {
       showToast('Không tìm thấy cặp từ vựng trong Excel.');
       return;
     }
-    addCards(cards);
-  } catch {
-    showToast('Không thể đọc file Excel.');
+    const enrichedCards = words.length ? await enrichFlashcardWords(words) : [];
+    await addCards([...cards, ...enrichedCards]);
+  } catch (error) {
+    showToast(error instanceof Error ? error.message : 'Không thể đọc file Excel.');
   }
 }
 
@@ -870,6 +977,8 @@ async function runActionWithLoading(button, action) {
   button.classList.add('is-loading');
   try {
     await action();
+  } catch (error) {
+    showToast(error instanceof Error ? error.message : 'Không thể hoàn tất thao tác.');
   } finally {
     button.classList.remove('is-loading');
     button.disabled = false;

@@ -129,6 +129,11 @@ textarea:focus {
   box-shadow: 0 0 0 3px rgba(29, 122, 102, 0.15);
 }
 
+input[readonly] {
+  background: #f4f0e8;
+  color: var(--muted);
+}
+
 .app {
   display: grid;
   grid-template-columns: 286px 1fr;
