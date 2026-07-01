@@ -147,6 +147,9 @@ function bindEvents() {
   $('toggleMastered').addEventListener('click', (event) => {
     runActionWithLoading(event.currentTarget, toggleCurrentCardMastered);
   });
+  $('swapCardSides').addEventListener('click', (event) => {
+    runActionWithLoading(event.currentTarget, swapCurrentCardSides);
+  });
   $('deleteCard').addEventListener('click', (event) => {
     runActionWithLoading(event.currentTarget, deleteCurrentCard);
   });
@@ -254,6 +257,7 @@ function renderShop() {
 
 function renderFlashFace(element, card, backSide) {
   element.innerHTML = '';
+  element.classList.remove('is-chinese');
   if (!card) {
     const empty = document.createElement('span');
     empty.className = 'flash-main';
@@ -264,7 +268,8 @@ function renderFlashFace(element, card, backSide) {
   const text = backSide ? card.backText : card.frontText;
   const phonetic = backSide ? card.backPhonetic : card.frontPhonetic;
   const spokenText = String(text || '').trim();
-  const lang = backSide ? 'zh-CN' : 'en-US';
+  const lang = flashcardSpeechLanguage(spokenText);
+  element.classList.toggle('is-chinese', lang === 'zh-CN');
   const main = document.createElement('span');
   main.className = 'flash-main';
   main.textContent = text || (phonetic ? `[${stripOuterBrackets(phonetic)}]` : '');
@@ -281,8 +286,9 @@ function renderFlashFace(element, card, backSide) {
     const speakButton = document.createElement('button');
     speakButton.className = 'speak-button';
     speakButton.type = 'button';
-    speakButton.setAttribute('aria-label', backSide ? 'Nghe tiếng Trung' : 'Nghe tiếng Anh');
-    speakButton.title = backSide ? 'Nghe tiếng Trung' : 'Nghe tiếng Anh';
+    const speakLabel = lang === 'zh-CN' ? 'Nghe tiếng Trung' : 'Nghe tiếng Anh';
+    speakButton.setAttribute('aria-label', speakLabel);
+    speakButton.title = speakLabel;
     speakButton.textContent = '🔊';
     speakButton.addEventListener('click', (event) => {
       event.stopPropagation();
@@ -302,6 +308,10 @@ function speakFlashcardText(text, lang) {
   utterance.lang = lang;
   utterance.rate = lang === 'zh-CN' ? 0.9 : 0.95;
   window.speechSynthesis.speak(utterance);
+}
+
+function flashcardSpeechLanguage(text) {
+  return /[\u3400-\u9fff]/.test(text) ? 'zh-CN' : 'en-US';
 }
 
 function renderFlashcards() {
@@ -370,6 +380,7 @@ function renderFlashcards() {
   $('prevCard').disabled = currentCardIndex <= 0;
   $('nextCard').disabled = currentCardIndex >= cards.length - 1;
   $('toggleMastered').disabled = !card;
+  $('swapCardSides').disabled = !card;
   $('deleteCard').disabled = !card;
   $('toggleMastered').textContent = 'Đã thuộc';
   $('toggleMastered').classList.toggle('active', Boolean(card?.mastered));
@@ -915,6 +926,31 @@ function toggleCurrentCardMastered() {
   const card = cardsForDeck(selectedDeckId)[currentCardIndex];
   if (!card) return;
   card.mastered = !card.mastered;
+  return persistAndSync();
+}
+
+function swapCurrentCardSides() {
+  const card = cardsForDeck(selectedDeckId)[currentCardIndex];
+  if (!card) return;
+  const normalized = normalizeNewFlashcard({
+    frontText: card.backText,
+    frontPhonetic: card.backPhonetic,
+    backText: card.frontText,
+    backPhonetic: card.frontPhonetic,
+    meaning: card.meaning,
+  });
+  Object.assign(card, {
+    front: normalized.front,
+    back: normalized.back,
+    frontText: normalized.frontText,
+    frontPhonetic: normalized.frontPhonetic,
+    backText: normalized.backText,
+    backPhonetic: normalized.backPhonetic,
+    meaning: normalized.meaning,
+  });
+  showingBack = false;
+  showingMeaning = false;
+  showToast('Đã đảo mặt thẻ, nghĩa tiếng Việt vẫn ở mặt sau.');
   return persistAndSync();
 }
 

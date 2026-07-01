@@ -620,7 +620,7 @@ h3 {
   white-space: pre-line;
 }
 
-.flash-back .flash-main {
+.flash-content.is-chinese .flash-main {
   font-family: "KaiTi", "STKaiti", "Kaiti SC", "DFKai-SB", "Noto Serif SC", "Songti SC", serif;
   font-size: clamp(40px, 6.4vw, 66px);
   font-weight: 400;
