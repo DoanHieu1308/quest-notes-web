@@ -153,6 +153,9 @@ function bindEvents() {
   $('deleteCard').addEventListener('click', (event) => {
     runActionWithLoading(event.currentTarget, deleteCurrentCard);
   });
+  $('swapDeckSides').addEventListener('click', (event) => {
+    runActionWithLoading(event.currentTarget, swapSelectedDeckSides);
+  });
   $('claimDeckReward').addEventListener('click', (event) => {
     runActionWithLoading(event.currentTarget, claimDeckReward);
   });
@@ -363,6 +366,7 @@ function renderFlashcards() {
     ? 'Đã nhận thưởng bộ này'
     : `Hoàn thành bộ để nhận ${reward} xu`;
   $('deckProgressBar').style.width = `${cards.length ? (mastered / cards.length) * 100 : 0}%`;
+  $('swapDeckSides').disabled = !cards.length;
   $('claimDeckReward').disabled = !canClaim;
   $('claimDeckReward').textContent = deck?.rewardClaimed ? 'Đã nhận' : 'Nhận xu';
 
@@ -932,6 +936,25 @@ function toggleCurrentCardMastered() {
 function swapCurrentCardSides() {
   const card = cardsForDeck(selectedDeckId)[currentCardIndex];
   if (!card) return;
+  swapCardSides(card);
+  showingBack = false;
+  showingMeaning = false;
+  showToast('Đã đảo mặt thẻ, nghĩa tiếng Việt vẫn ở mặt sau.');
+  return persistAndSync();
+}
+
+function swapSelectedDeckSides() {
+  const cards = cardsForDeck(selectedDeckId);
+  if (!cards.length) return;
+  cards.forEach(swapCardSides);
+  currentCardIndex = Math.min(currentCardIndex, Math.max(0, cards.length - 1));
+  showingBack = false;
+  showingMeaning = false;
+  showToast(`Đã đảo ${cards.length} thẻ trong bộ này.`);
+  return persistAndSync();
+}
+
+function swapCardSides(card) {
   const normalized = normalizeNewFlashcard({
     frontText: card.backText,
     frontPhonetic: card.backPhonetic,
@@ -948,10 +971,6 @@ function swapCurrentCardSides() {
     backPhonetic: normalized.backPhonetic,
     meaning: normalized.meaning,
   });
-  showingBack = false;
-  showingMeaning = false;
-  showToast('Đã đảo mặt thẻ, nghĩa tiếng Việt vẫn ở mặt sau.');
-  return persistAndSync();
 }
 
 function deleteCurrentCard() {
