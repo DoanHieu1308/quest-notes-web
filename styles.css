@@ -615,6 +615,15 @@ h3 {
   white-space: pre-line;
 }
 
+.flash-back .flash-main {
+  font-family: "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans SC", "PingFang SC", "Hiragino Sans GB", sans-serif;
+  font-weight: 650;
+  letter-spacing: 0;
+  line-height: 1.18;
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
+}
+
 .flash-phonetic {
   max-width: 100%;
   overflow-wrap: anywhere;
