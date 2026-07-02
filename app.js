@@ -1062,7 +1062,9 @@ function orientFlashcardForDeck(card, deck) {
   if (shouldSwap) {
     swapCardSides(normalized);
   }
-  return normalizeNewFlashcard(normalized);
+  const oriented = normalizeNewFlashcard(normalized);
+  Object.assign(card, oriented);
+  return oriented;
 }
 
 function hasChineseText(text) {
