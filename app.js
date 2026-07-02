@@ -325,7 +325,7 @@ function speakFlashcardText(text, lang) {
 }
 
 function flashcardSpeechLanguage(text) {
-  return /[\u3400-\u9fff]/.test(text) ? 'zh-CN' : 'en-US';
+  return hasChineseText(text) ? 'zh-CN' : 'en-US';
 }
 
 function renderFlashcards() {
@@ -686,12 +686,7 @@ function addCards(cards, { single = false } = {}) {
   const deck = state.flashDecks.find((item) => item.id === selectedDeckId);
   const normalized = cards
     .map(normalizeNewFlashcard)
-    .map((card) => {
-      if (!deck?.sideSwapped) return card;
-      const swapped = { ...card };
-      swapCardSides(swapped);
-      return normalizeNewFlashcard(swapped);
-    })
+    .map((card) => orientFlashcardForDeck(card, deck))
     .filter(hasFlashcardContent);
   const knownFronts = new Set(
     cardsForDeck(selectedDeckId).flatMap(flashcardLookupKeys),
@@ -1004,8 +999,8 @@ function swapSelectedDeckSides() {
   const deck = state.flashDecks.find((item) => item.id === selectedDeckId);
   const cards = cardsForDeck(selectedDeckId);
   if (!deck || !cards.length) return;
-  cards.forEach(swapCardSides);
   deck.sideSwapped = !deck.sideSwapped;
+  cards.forEach((card) => orientFlashcardForDeck(card, deck));
   currentCardIndex = Math.min(currentCardIndex, Math.max(0, cards.length - 1));
   showingBack = false;
   showingMeaning = false;
@@ -1032,6 +1027,25 @@ function swapCardSides(card) {
     backPhonetic: normalized.backPhonetic,
     meaning: normalized.meaning,
   });
+}
+
+function orientFlashcardForDeck(card, deck) {
+  const normalized = normalizeNewFlashcard(card);
+  const shouldShowChineseFront = Boolean(deck?.sideSwapped);
+  const frontIsChinese = hasChineseText(normalized.frontText);
+  const backIsChinese = hasChineseText(normalized.backText);
+  const shouldSwap =
+    (shouldShowChineseFront && !frontIsChinese && backIsChinese) ||
+    (!shouldShowChineseFront && frontIsChinese && !backIsChinese);
+
+  if (shouldSwap) {
+    swapCardSides(normalized);
+  }
+  return normalizeNewFlashcard(normalized);
+}
+
+function hasChineseText(text) {
+  return /[\u3400-\u9fff]/.test(String(text || ''));
 }
 
 function toggleSelectAllCards() {
