@@ -747,13 +747,55 @@ h3 {
   display: none;
 }
 
+.excel-upload.is-loading {
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.import-progress {
+  grid-column: 1 / -1;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f4f0e8;
+  color: var(--accent-dark);
+  font-size: 13px;
+  font-weight: 850;
+  padding: 10px 12px;
+}
+
+.list-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.list-toolbar span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.list-toolbar > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.list-toolbar button {
+  min-height: 36px;
+  padding: 0 12px;
+}
+
 .mini-list {
   margin-top: 14px;
 }
 
 .mini-card {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 10px;
   border: 1px solid var(--line);
@@ -765,6 +807,23 @@ h3 {
 
 .mini-card.active {
   border-color: var(--accent);
+}
+
+.mini-card.selected {
+  background: #eef7f3;
+}
+
+.mini-select {
+  display: grid;
+  width: 28px;
+  height: 38px;
+  place-items: center;
+}
+
+.mini-select input {
+  width: 18px;
+  min-height: 18px;
+  accent-color: var(--accent);
 }
 
 .mini-open {
@@ -949,13 +1008,12 @@ h3 {
   }
 
   .plain-item,
-  .quest-item,
-  .mini-card {
+  .quest-item {
     grid-template-columns: 1fr;
   }
 
   .mini-card {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: auto 1fr auto;
   }
 
   .row-actions {

@@ -167,8 +167,16 @@
                     <span>Nhập Excel</span>
                   </label>
                 </div>
+                <div id="importProgress" class="import-progress hidden" role="status" aria-live="polite"></div>
               </div>
 
+              <div class="list-toolbar">
+                <span id="selectedCardsText">Chưa chọn thẻ</span>
+                <div>
+                  <button id="selectAllCards" class="ghost" type="button">Chọn tất cả</button>
+                  <button id="deleteSelectedCards" class="danger" type="button">Xóa đã chọn</button>
+                </div>
+              </div>
               <div id="cardList" class="mini-list"></div>
             </section>
           </div>

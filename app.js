@@ -14,6 +14,7 @@ let showingMeaning = false;
 let editingShopId = null;
 let activeActionButton = null;
 let translatedCardDraft = null;
+let selectedCardIds = new Set();
 
 const $ = (id) => document.getElementById(id);
 const weekdays = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
@@ -65,12 +66,13 @@ function bindEvents() {
     runActionWithLoading(event.submitter, async () => {
       const name = $('deckName').value.trim();
       if (!name) return;
-      const deck = { id: newId(), name, createdAt: Date.now(), rewardClaimed: false };
+      const deck = { id: newId(), name, createdAt: Date.now(), rewardClaimed: false, sideSwapped: false };
       state.flashDecks.push(deck);
       selectedDeckId = deck.id;
       currentCardIndex = 0;
       showingBack = false;
       showingMeaning = false;
+      selectedCardIds.clear();
       $('deckName').value = '';
       await persistAndSync();
     });
@@ -122,9 +124,14 @@ function bindEvents() {
         showToast('Nhập mỗi dòng một từ tiếng Anh, hoặc dùng mẫu cũ đủ 5 cột.');
         return;
       }
-      const enrichedCards = words.length ? await enrichFlashcardWords(words) : [];
-      await addCards([...cards, ...enrichedCards]);
-      $('bulkCards').value = '';
+      try {
+        setImportProgress(words.length ? `Đang dịch ${words.length} từ...` : `Đang nhập ${cards.length} thẻ...`);
+        const enrichedCards = words.length ? await enrichFlashcardWords(words) : [];
+        await addCards([...cards, ...enrichedCards]);
+        $('bulkCards').value = '';
+      } finally {
+        setImportProgress('');
+      }
     });
   });
 
@@ -155,6 +162,10 @@ function bindEvents() {
   });
   $('swapDeckSides').addEventListener('click', (event) => {
     runActionWithLoading(event.currentTarget, swapSelectedDeckSides);
+  });
+  $('selectAllCards').addEventListener('click', toggleSelectAllCards);
+  $('deleteSelectedCards').addEventListener('click', (event) => {
+    runActionWithLoading(event.currentTarget, deleteSelectedCards);
   });
   $('claimDeckReward').addEventListener('click', (event) => {
     runActionWithLoading(event.currentTarget, claimDeckReward);
@@ -341,6 +352,7 @@ function renderFlashcards() {
       currentCardIndex = 0;
       showingBack = false;
       showingMeaning = false;
+      selectedCardIds.clear();
       renderFlashcards();
     });
     row.querySelector('.edit').addEventListener('click', () => editDeck(deck.id));
@@ -369,6 +381,7 @@ function renderFlashcards() {
   $('swapDeckSides').disabled = !cards.length;
   $('claimDeckReward').disabled = !canClaim;
   $('claimDeckReward').textContent = deck?.rewardClaimed ? 'Đã nhận' : 'Nhận xu';
+  $('swapDeckSides').textContent = deck?.sideSwapped ? 'Đảo về Anh trước' : 'Đảo cả bộ';
 
   const normalizedCard = card ? normalizeNewFlashcard(card) : null;
   $('flashCard').classList.toggle('flipped', showingBack);
@@ -390,12 +403,26 @@ function renderFlashcards() {
   $('toggleMastered').classList.toggle('active', Boolean(card?.mastered));
   $('toggleMastered').setAttribute('aria-pressed', String(Boolean(card?.mastered)));
 
+  const currentCardIds = new Set(cards.map((item) => item.id));
+  selectedCardIds = new Set([...selectedCardIds].filter((id) => currentCardIds.has(id)));
+  $('selectedCardsText').textContent = selectedCardIds.size
+    ? `Đã chọn ${selectedCardIds.size}/${cards.length} thẻ`
+    : 'Chưa chọn thẻ';
+  $('selectAllCards').disabled = !cards.length;
+  $('selectAllCards').textContent = selectedCardIds.size === cards.length && cards.length
+    ? 'Bỏ chọn tất cả'
+    : 'Chọn tất cả';
+  $('deleteSelectedCards').disabled = selectedCardIds.size === 0;
+
   const list = $('cardList');
   list.innerHTML = cards.length ? '' : '<div class="empty">Bộ này đang trống. Nhập theo mẫu từ vựng : nghĩa để bắt đầu.</div>';
   cards.forEach((item, index) => {
     const row = document.createElement('article');
-    row.className = `mini-card ${index === currentCardIndex ? 'active' : ''}`;
+    row.className = `mini-card ${index === currentCardIndex ? 'active' : ''} ${selectedCardIds.has(item.id) ? 'selected' : ''}`;
     row.innerHTML = `
+      <label class="mini-select" aria-label="Chọn thẻ">
+        <input type="checkbox" ${selectedCardIds.has(item.id) ? 'checked' : ''} />
+      </label>
       <button class="mini-open" type="button">
         <span class="pill gold">${item.mastered ? 'OK' : index + 1}</span>
         <strong></strong>
@@ -410,6 +437,14 @@ function renderFlashcards() {
       </details>
     `;
     row.querySelector('strong').textContent = item.front;
+    row.querySelector('.mini-select input').addEventListener('change', (event) => {
+      if (event.currentTarget.checked) {
+        selectedCardIds.add(item.id);
+      } else {
+        selectedCardIds.delete(item.id);
+      }
+      renderFlashcards();
+    });
     row.querySelector('.mini-open').addEventListener('click', () => {
       currentCardIndex = index;
       showingBack = false;
@@ -553,6 +588,7 @@ function deleteDeck(id) {
   if (state.flashDecks.length <= 1) return;
   state.flashDecks = state.flashDecks.filter((deck) => deck.id !== id);
   state.flashCards = state.flashCards.filter((card) => card.deckId !== id);
+  selectedCardIds.clear();
   ensureSelectedDeck();
   currentCardIndex = 0;
   showingBack = false;
@@ -582,6 +618,7 @@ function deleteFlashCard(id) {
   const card = state.flashCards.find((item) => item.id === id);
   if (!card) return;
   state.flashCards = state.flashCards.filter((item) => item.id !== id);
+  selectedCardIds.delete(id);
   const cards = cardsForDeck(selectedDeckId);
   currentCardIndex = Math.min(currentCardIndex, Math.max(0, cards.length - 1));
   showingBack = false;
@@ -646,19 +683,24 @@ function clearCardForm() {
 }
 
 function addCards(cards, { single = false } = {}) {
+  const deck = state.flashDecks.find((item) => item.id === selectedDeckId);
   const normalized = cards
     .map(normalizeNewFlashcard)
+    .map((card) => {
+      if (!deck?.sideSwapped) return card;
+      const swapped = { ...card };
+      swapCardSides(swapped);
+      return normalizeNewFlashcard(swapped);
+    })
     .filter(hasFlashcardContent);
   const knownFronts = new Set(
-    cardsForDeck(selectedDeckId).map((card) =>
-      frontKey(card.frontText || card.front, card.frontPhonetic),
-    ),
+    cardsForDeck(selectedDeckId).flatMap(flashcardLookupKeys),
   );
   const newCards = [];
   normalized.forEach((card) => {
-    const key = frontKey(card.frontText || card.front, card.frontPhonetic);
-    if (knownFronts.has(key)) return;
-    knownFronts.add(key);
+    const keys = flashcardLookupKeys(card);
+    if (keys.some((key) => knownFronts.has(key))) return;
+    keys.forEach((key) => knownFronts.add(key));
     newCards.push(card);
   });
 
@@ -680,7 +722,6 @@ function addCards(cards, { single = false } = {}) {
       mastered: false,
     })),
   );
-  const deck = state.flashDecks.find((item) => item.id === selectedDeckId);
   if (deck) deck.rewardClaimed = false;
   const skipped = normalized.length - newCards.length;
   showToast(
@@ -698,6 +739,13 @@ function toggleImportMenu() {
 function setImportMenuOpen(open) {
   $('importMenu').classList.toggle('hidden', !open);
   $('toggleImportMenu').setAttribute('aria-expanded', String(open));
+  if (!open) setImportProgress('');
+}
+
+function setImportProgress(message) {
+  const progress = $('importProgress');
+  progress.textContent = message || '';
+  progress.classList.toggle('hidden', !message);
 }
 
 function parseBulkFlashcards(rawText) {
@@ -752,6 +800,7 @@ function parseRawCards(rawText) {
 }
 
 async function importExcelCards(event) {
+  const uploadLabel = event.currentTarget.closest('.excel-upload');
   const file = event.target.files?.[0];
   event.target.value = '';
   if (!file) return;
@@ -761,6 +810,8 @@ async function importExcelCards(event) {
   }
 
   try {
+    uploadLabel?.classList.add('is-loading');
+    setImportProgress('Đang đọc file Excel...');
     const buffer = await file.arrayBuffer();
     const workbook = window.XLSX.read(buffer, { type: 'array' });
     const cards = [];
@@ -792,10 +843,16 @@ async function importExcelCards(event) {
       showToast('Không tìm thấy cặp từ vựng trong Excel.');
       return;
     }
+    setImportProgress(words.length
+      ? `Đang dịch ${words.length} từ trong Excel...`
+      : `Đang nhập ${cards.length} thẻ từ Excel...`);
     const enrichedCards = words.length ? await enrichFlashcardWords(words) : [];
     await addCards([...cards, ...enrichedCards]);
   } catch (error) {
     showToast(error instanceof Error ? error.message : 'Không thể đọc file Excel.');
+  } finally {
+    uploadLabel?.classList.remove('is-loading');
+    setImportProgress('');
   }
 }
 
@@ -944,13 +1001,17 @@ function swapCurrentCardSides() {
 }
 
 function swapSelectedDeckSides() {
+  const deck = state.flashDecks.find((item) => item.id === selectedDeckId);
   const cards = cardsForDeck(selectedDeckId);
-  if (!cards.length) return;
+  if (!deck || !cards.length) return;
   cards.forEach(swapCardSides);
+  deck.sideSwapped = !deck.sideSwapped;
   currentCardIndex = Math.min(currentCardIndex, Math.max(0, cards.length - 1));
   showingBack = false;
   showingMeaning = false;
-  showToast(`Đã đảo ${cards.length} thẻ trong bộ này.`);
+  showToast(deck.sideSwapped
+    ? `Đã đảo ${cards.length} thẻ: tiếng Trung ở mặt trước.`
+    : `Đã đảo ${cards.length} thẻ về tiếng Anh ở mặt trước.`);
   return persistAndSync();
 }
 
@@ -973,10 +1034,35 @@ function swapCardSides(card) {
   });
 }
 
+function toggleSelectAllCards() {
+  const cards = cardsForDeck(selectedDeckId);
+  if (!cards.length) return;
+  if (selectedCardIds.size === cards.length) {
+    selectedCardIds.clear();
+  } else {
+    selectedCardIds = new Set(cards.map((card) => card.id));
+  }
+  renderFlashcards();
+}
+
+function deleteSelectedCards() {
+  const selectedIds = new Set(selectedCardIds);
+  if (!selectedIds.size) return;
+  state.flashCards = state.flashCards.filter((card) => !selectedIds.has(card.id));
+  selectedCardIds.clear();
+  const cards = cardsForDeck(selectedDeckId);
+  currentCardIndex = Math.min(currentCardIndex, Math.max(0, cards.length - 1));
+  showingBack = false;
+  showingMeaning = false;
+  showToast(`Đã xóa ${selectedIds.size} thẻ.`);
+  return persistAndSync();
+}
+
 function deleteCurrentCard() {
   const card = cardsForDeck(selectedDeckId)[currentCardIndex];
   if (!card) return;
   state.flashCards = state.flashCards.filter((item) => item.id !== card.id);
+  selectedCardIds.delete(card.id);
   currentCardIndex = Math.max(0, currentCardIndex - 1);
   showingBack = false;
   showingMeaning = false;
@@ -1001,9 +1087,15 @@ function cardsForDeck(deckId) {
 
 function hasFlashcardFront(deckId, front, phonetic = '') {
   const key = frontKey(front, phonetic);
-  return cardsForDeck(deckId).some(
-    (card) => frontKey(card.frontText || card.front, card.frontPhonetic) === key,
-  );
+  return cardsForDeck(deckId).some((card) => flashcardLookupKeys(card).includes(key));
+}
+
+function flashcardLookupKeys(card) {
+  const normalized = normalizeNewFlashcard(card);
+  return [
+    frontKey(normalized.frontText, normalized.frontPhonetic),
+    frontKey(normalized.backText, normalized.backPhonetic),
+  ].filter(Boolean);
 }
 
 function hasFlashcardContent(card) {
@@ -1146,6 +1238,7 @@ function normalizeDeck(deck = {}) {
     name: String(deck.name || 'Từ vựng chung'),
     createdAt: Number.parseInt(deck.createdAt, 10) || 0,
     rewardClaimed: Boolean(deck.rewardClaimed),
+    sideSwapped: Boolean(deck.sideSwapped),
   };
 }
 
