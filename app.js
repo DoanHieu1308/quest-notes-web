@@ -125,8 +125,12 @@ function bindEvents() {
         return;
       }
       try {
-        setImportProgress(words.length ? `Đang dịch ${words.length} từ...` : `Đang nhập ${cards.length} thẻ...`);
-        const enrichedCards = words.length ? await enrichFlashcardWords(words) : [];
+        const enrichedCards = words.length
+          ? await enrichFlashcardWords(words, {
+            onProgress: (done, total) => setImportProgress(`Đã dịch ${done}/${total} từ...`),
+          })
+          : [];
+        if (!words.length) setImportProgress(`Đang nhập ${cards.length} thẻ...`);
         await addCards([...cards, ...enrichedCards]);
         $('bulkCards').value = '';
       } finally {
@@ -639,25 +643,40 @@ async function translateSingleCard(frontText) {
   return card;
 }
 
-async function enrichFlashcardWords(words) {
+async function enrichFlashcardWords(words, { onProgress } = {}) {
   const uniqueWords = uniqueFlashcardWords(words).filter((word) => !hasFlashcardFront(selectedDeckId, word));
   if (!uniqueWords.length) return [];
+  const cards = [];
+  const errors = [];
+  onProgress?.(0, uniqueWords.length);
 
+  for (const [index, word] of uniqueWords.entries()) {
+    const result = await fetchEnrichedFlashcards([word]);
+    cards.push(...result.cards);
+    errors.push(...result.errors);
+    onProgress?.(index + 1, uniqueWords.length);
+  }
+
+  if (errors.length) {
+    showToast(`Có ${errors.length} từ chưa dịch được, đã bỏ qua.`);
+  }
+  return cards.map(normalizeNewFlashcard).filter(hasFlashcardContent);
+}
+
+async function fetchEnrichedFlashcards(words) {
   const response = await fetch(`${API_BASE_URL}/flashcards/enrich`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ items: uniqueWords }),
+    body: JSON.stringify({ items: words }),
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || !payload.success) {
     throw new Error(payload.message || 'Không thể dịch từ vựng.');
   }
-  const cards = Array.isArray(payload.data?.cards) ? payload.data.cards : [];
-  const errors = Array.isArray(payload.data?.errors) ? payload.data.errors : [];
-  if (errors.length) {
-    showToast(`Có ${errors.length} từ chưa dịch được, đã bỏ qua.`);
-  }
-  return cards.map(normalizeNewFlashcard).filter(hasFlashcardContent);
+  return {
+    cards: Array.isArray(payload.data?.cards) ? payload.data.cards : [],
+    errors: Array.isArray(payload.data?.errors) ? payload.data.errors : [],
+  };
 }
 
 function uniqueFlashcardWords(words) {
@@ -838,10 +857,12 @@ async function importExcelCards(event) {
       showToast('Không tìm thấy cặp từ vựng trong Excel.');
       return;
     }
-    setImportProgress(words.length
-      ? `Đang dịch ${words.length} từ trong Excel...`
-      : `Đang nhập ${cards.length} thẻ từ Excel...`);
-    const enrichedCards = words.length ? await enrichFlashcardWords(words) : [];
+    const enrichedCards = words.length
+      ? await enrichFlashcardWords(words, {
+        onProgress: (done, total) => setImportProgress(`Đã dịch ${done}/${total} từ trong Excel...`),
+      })
+      : [];
+    if (!words.length) setImportProgress(`Đang nhập ${cards.length} thẻ từ Excel...`);
     await addCards([...cards, ...enrichedCards]);
   } catch (error) {
     showToast(error instanceof Error ? error.message : 'Không thể đọc file Excel.');
